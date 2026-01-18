@@ -1,0 +1,737 @@
+import { useState, useEffect } from 'react';
+import { FiX, FiCalendar, FiUser, FiPhone } from 'react-icons/fi';
+import api from '../services/api';
+import { toast } from 'react-toastify';
+
+interface QuickAppointmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+interface Doctor {
+  id: string;
+  first_name: string;
+  last_name: string;
+  specialty?: string;
+}
+
+interface ColorCode {
+  id: number;
+  color_name: string;
+  color_hex: string;
+}
+
+interface TimeSlot {
+  time: string;
+  available: boolean;
+}
+
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: string;
+  phone: string;
+  color_code_id?: number;
+  color_code_name?: string;
+  color_code_hex?: string;
+}
+
+const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentModalProps) => {
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    date_of_birth: '',
+    gender: 'Female',
+    phone: '',
+    color_code_id: '',
+    doctor_id: '',
+    appointment_date: '',
+    appointment_time: '',
+    duration: '30',
+    reservation_type: 'Clinic',
+    notes: ''
+  });
+
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [colorCodes, setColorCodes] = useState<ColorCode[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [matchingPatients, setMatchingPatients] = useState<Patient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [searchingPatients, setSearchingPatients] = useState(false);
+  const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadDoctors();
+      loadColorCodes();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (formData.doctor_id && formData.appointment_date) {
+      loadAvailableTimeSlots();
+    } else {
+      setTimeSlots([]);
+    }
+  }, [formData.doctor_id, formData.appointment_date]);
+
+  useEffect(() => {
+    // Debounced patient search
+    const searchTerm = formData.first_name || formData.last_name || formData.phone;
+    if (searchTerm && searchTerm.length >= 2 && !selectedPatient) {
+      const timer = setTimeout(() => {
+        searchPatients(searchTerm);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setMatchingPatients([]);
+      setShowPatientSuggestions(false);
+    }
+  }, [formData.first_name, formData.last_name, formData.phone, selectedPatient]);
+
+  const loadDoctors = async () => {
+    try {
+      const response: any = await api.get('/doctors');
+      const doctorsList = response.data || response;
+      setDoctors(Array.isArray(doctorsList) ? doctorsList : []);
+    } catch (error) {
+      console.error('Error loading doctors:', error);
+      toast.error('Failed to load doctors');
+    }
+  };
+
+  const loadColorCodes = async () => {
+    try {
+      const response: any = await api.get('/patients/color-codes');
+      const colorCodesList = response.data || response;
+      setColorCodes(Array.isArray(colorCodesList) ? colorCodesList : []);
+    } catch (error) {
+      console.error('Error loading color codes:', error);
+      toast.error('Failed to load color codes');
+    }
+  };
+
+  const searchPatients = async (searchTerm: string) => {
+    setSearchingPatients(true);
+    try {
+      const response: any = await api.get('/patients', { search: searchTerm, limit: 5 });
+      const data = response.data || response;
+      const patients = data.patients || data;
+      
+      if (Array.isArray(patients) && patients.length > 0) {
+        setMatchingPatients(patients);
+        setShowPatientSuggestions(true);
+      } else {
+        setMatchingPatients([]);
+        setShowPatientSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Error searching patients:', error);
+      setMatchingPatients([]);
+      setShowPatientSuggestions(false);
+    } finally {
+      setSearchingPatients(false);
+    }
+  };
+
+  const selectExistingPatient = (patient: Patient) => {
+    setSelectedPatient(patient);
+    
+    // Format date of birth to YYYY-MM-DD for input field
+    let formattedDOB = '';
+    if (patient.date_of_birth) {
+      const date = new Date(patient.date_of_birth);
+      if (!isNaN(date.getTime())) {
+        formattedDOB = date.toISOString().split('T')[0];
+      }
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      first_name: patient.first_name,
+      last_name: patient.last_name,
+      date_of_birth: formattedDOB,
+      phone: patient.phone,
+      color_code_id: patient.color_code_id ? patient.color_code_id.toString() : '',
+      gender: patient.gender || 'Female'
+    }));
+    setShowPatientSuggestions(false);
+    setMatchingPatients([]);
+    toast.info(`Using existing patient: ${patient.first_name} ${patient.last_name}`);
+  };
+
+  const clearPatientSelection = () => {
+    setSelectedPatient(null);
+    toast.info('Creating new patient record');
+  };
+
+  const loadAvailableTimeSlots = async () => {
+    setLoadingSlots(true);
+    try {
+      // Get doctor's calendar with working hours and time slots
+      const calendarResponse: any = await api.get(`/calendars/doctor/${formData.doctor_id}`);
+      const calendar = calendarResponse.data?.data || calendarResponse.data || calendarResponse;
+      
+      console.log('Calendar data received:', calendar);
+      
+      // Get working hours for the selected date
+      const selectedDate = new Date(formData.appointment_date);
+      const dayOfWeek = selectedDate.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      console.log('Selected day of week:', dayOfWeek);
+      
+      // Get existing appointments for the selected date
+      const startOfDay = `${formData.appointment_date}T00:00:00`;
+      const endOfDay = `${formData.appointment_date}T23:59:59`;
+      
+      const appointmentsResponse: any = await api.get(`/appointments?doctor_id=${formData.doctor_id}&date_from=${startOfDay}&date_to=${endOfDay}`);
+      const appointmentsData = appointmentsResponse.data?.data || appointmentsResponse.data || appointmentsResponse;
+      const existingAppointments = Array.isArray(appointmentsData) ? appointmentsData : [];
+      
+      // Filter out cancelled and no-show appointments - they shouldn't block time slots
+      const activeAppointments = existingAppointments.filter((apt: any) => 
+        apt.status !== 'cancelled' && apt.status !== 'no-show'
+      );
+      
+      // Find working hours for this day
+      let workingHours = null;
+      if (calendar && calendar.working_hours && Array.isArray(calendar.working_hours)) {
+        workingHours = calendar.working_hours.find((wh: any) => 
+          wh.day_of_week === dayOfWeek && wh.is_active
+        );
+        console.log('Working hours for this day:', workingHours);
+      }
+      
+      const slots: TimeSlot[] = [];
+      
+      // Check if this day is closed (weekend/holiday)
+      if (!workingHours || workingHours.is_closed) {
+        console.log('Day is closed - no slots available');
+        setTimeSlots([]);
+        if (workingHours?.is_closed) {
+          toast.info('This day is marked as closed (weekend/holiday) for this doctor');
+        } else {
+          toast.info('No working hours configured for this day');
+        }
+        setLoadingSlots(false);
+        return;
+      }
+      
+      // Parse working hours
+      const [startHour, startMinute] = workingHours.start_time.split(':').map(Number);
+      const [endHour, endMinute] = workingHours.end_time.split(':').map(Number);
+      
+      // Get slot duration from time_slots configuration
+      let slotDuration = 30; // Default
+      let breakDuration = 0; // Default
+      
+      if (calendar.time_slots && Array.isArray(calendar.time_slots) && calendar.time_slots.length > 0) {
+        const timeSlotConfig = calendar.time_slots[0];
+        slotDuration = timeSlotConfig.slot_duration || 30;
+        breakDuration = timeSlotConfig.break_duration || 0;
+        console.log('Using configured slot duration:', slotDuration, 'minutes, break:', breakDuration, 'minutes');
+        
+        // Update form duration to match calendar slot duration
+        setFormData(prev => ({
+          ...prev,
+          duration: slotDuration.toString()
+        }));
+      } else {
+        console.log('No time slots configured, using default 30 minutes');
+      }
+      
+      // Generate time slots
+      let currentHour = startHour;
+      let currentMinute = startMinute;
+      
+      while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+        const time = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+        
+        // Check if this slot is already booked by active appointments
+        const slotDateTime = new Date(formData.appointment_date);
+        slotDateTime.setHours(currentHour, currentMinute, 0, 0);
+        
+        const isBooked = activeAppointments.some((apt: any) => {
+          const aptStart = new Date(apt.start_at);
+          const aptEnd = new Date(apt.end_at);
+          return slotDateTime >= aptStart && slotDateTime < aptEnd;
+        });
+        
+        slots.push({ time, available: !isBooked });
+        
+        // Move to next slot
+        currentMinute += slotDuration + breakDuration;
+        if (currentMinute >= 60) {
+          currentHour += Math.floor(currentMinute / 60);
+          currentMinute = currentMinute % 60;
+        }
+      }
+      
+      console.log('Generated', slots.length, 'time slots');
+      setTimeSlots(slots);
+    } catch (error) {
+      console.error('Error loading time slots:', error);
+      toast.error('Failed to load time slots');
+      // Fallback to default slots
+      const slots: TimeSlot[] = [];
+      for (let hour = 9; hour < 17; hour++) {
+        for (let minute = 0; minute < 60; minute += 30) {
+          const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+          slots.push({ time, available: true });
+        }
+      }
+      setTimeSlots(slots);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear selected patient if user modifies name or phone
+    if ((name === 'first_name' || name === 'last_name' || name === 'phone') && selectedPatient) {
+      setSelectedPatient(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.first_name || !formData.last_name || !formData.phone || 
+        !formData.doctor_id || !formData.appointment_date || !formData.appointment_time) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      let patientId: string;
+      
+      // Use existing patient if selected, otherwise create new
+      if (selectedPatient) {
+        patientId = selectedPatient.id;
+        console.log('Using existing patient:', selectedPatient.first_name, selectedPatient.last_name);
+      } else {
+        // Create new patient
+        const patientData = {
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          date_of_birth: formData.date_of_birth || null,
+          gender: formData.gender,
+          phone: formData.phone,
+          color_code_id: formData.color_code_id ? parseInt(formData.color_code_id) : null
+        };
+        
+        const patientResponse: any = await api.post('/patients', patientData);
+        const patient = patientResponse.data || patientResponse;
+        patientId = patient.id;
+        console.log('Created new patient:', patient.first_name, patient.last_name);
+      }
+      
+      // Create appointment
+      const [year, month, day] = formData.appointment_date.split('-');
+      const [hours, minutes] = formData.appointment_time.split(':');
+      const startAt = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+      
+      // Calculate end time
+      const endAt = new Date(startAt);
+      endAt.setMinutes(endAt.getMinutes() + parseInt(formData.duration));
+      
+      // Format dates
+      const formatDateTime = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+      
+      const appointmentData = {
+        patient_id: patientId,
+        doctor_id: formData.doctor_id,
+        start_at: formatDateTime(startAt),
+        end_at: formatDateTime(endAt),
+        type: 'Walk-in Appointment',
+        status: 'scheduled',
+        notes: formData.notes
+      };
+      
+      await api.post('/appointments', appointmentData);
+      
+      toast.success('Quick appointment created successfully!');
+      onSuccess();
+      handleClose();
+    } catch (error: any) {
+      console.error('Error creating appointment:', error);
+      toast.error(error.response?.data?.error || 'Failed to create appointment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setFormData({
+      first_name: '',
+      last_name: '',
+      date_of_birth: '',
+      gender: 'Female',
+      phone: '',
+      color_code_id: '',
+      doctor_id: '',
+      appointment_date: '',
+      appointment_time: '',
+      duration: '30',
+      reservation_type: 'Clinic',
+      notes: ''
+    });
+    setTimeSlots([]);
+    setMatchingPatients([]);
+    setSelectedPatient(null);
+    setShowPatientSuggestions(false);
+    setSearchingPatients(false);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  const selectedColorCode = Array.isArray(colorCodes) 
+    ? colorCodes.find(c => c.id === parseInt(formData.color_code_id))
+    : undefined;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-500 text-white p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FiCalendar size={28} />
+            <h2 className="text-2xl font-bold">Quick Appointment</h2>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-white/20 rounded-lg transition"
+          >
+            <FiX size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Patient Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <FiUser className="text-blue-600" />
+              Patient Information
+              {selectedPatient && (
+                <span className="text-sm font-normal text-green-600 flex items-center gap-1">
+                  ✓ Using existing patient
+                  <button
+                    type="button"
+                    onClick={clearPatientSelection}
+                    className="ml-2 text-xs text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Create new instead
+                  </button>
+                </span>
+              )}
+            </h3>
+
+            {/* Patient Suggestions Dropdown */}
+            {showPatientSuggestions && matchingPatients.length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 mb-2">
+                  Found {matchingPatients.length} existing patient{matchingPatients.length > 1 ? 's' : ''}:
+                </p>
+                <div className="space-y-2">
+                  {matchingPatients.map((patient) => (
+                    <button
+                      key={patient.id}
+                      type="button"
+                      onClick={() => selectExistingPatient(patient)}
+                      className="w-full text-left p-3 bg-white border border-blue-300 rounded-lg hover:bg-blue-100 transition flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {patient.first_name} {patient.last_name}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {patient.phone}
+                          {patient.date_of_birth && ` • DOB: ${new Date(patient.date_of_birth).toLocaleDateString()}`}
+                        </div>
+                        {patient.color_code_name && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <div
+                              className="w-4 h-4 rounded border"
+                              style={{ backgroundColor: patient.color_code_hex }}
+                            />
+                            <span className="text-xs text-gray-500">{patient.color_code_name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-blue-600 font-medium">Select</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleChange}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Color Code
+                </label>
+                <select
+                  name="color_code_id"
+                  value={formData.color_code_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select color code</option>
+                  {Array.isArray(colorCodes) && colorCodes.length > 0 ? (
+                    colorCodes.map((code) => (
+                      <option key={code.id} value={code.id}>
+                        {code.color_name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>Loading...</option>
+                  )}
+                </select>
+                {selectedColorCode && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded border-2 border-gray-300"
+                      style={{ backgroundColor: selectedColorCode.color_hex }}
+                    />
+                    <span className="text-sm text-gray-600">{selectedColorCode.color_name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Appointment Details */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <FiCalendar className="text-blue-600" />
+              Appointment Details
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Doctor <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="doctor_id"
+                  value={formData.doctor_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select a doctor</option>
+                  {Array.isArray(doctors) && doctors.length > 0 ? (
+                    doctors.map((doctor) => (
+                      <option key={doctor.id} value={doctor.id}>
+                        {doctor.first_name} {doctor.last_name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>Loading...</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  name="appointment_date"
+                  value={formData.appointment_date}
+                  onChange={handleChange}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Duration (minutes)
+                </label>
+                <select
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">1 hour</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reservation Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="reservation_type"
+                  value={formData.reservation_type}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="Clinic">Clinic</option>
+                  <option value="phone">Phone</option>
+                  <option value="Doctor">Doctor</option>
+                  <option value="website">Website</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Time Slots */}
+          {formData.doctor_id && formData.appointment_date && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Available Time Slots <span className="text-red-500">*</span>
+              </label>
+              
+              {loadingSlots ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                  {timeSlots.map((slot) => (
+                    <button
+                      key={slot.time}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, appointment_time: slot.time }))}
+                      disabled={!slot.available}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                        formData.appointment_time === slot.time
+                          ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                          : slot.available
+                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {slot.time}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={submitting}
+            >
+              {submitting ? 'Creating...' : 'Create Appointment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default QuickAppointmentModal;

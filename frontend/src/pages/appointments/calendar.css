@@ -1,0 +1,193 @@
+  /* Custom Calendar Styles for Better Appointment Display */
+
+/* Event container */
+.rbc-event {
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  font-size: 0.875rem !important;
+  line-height: 1.3 !important;
+  white-space: pre-wrap !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Event label */
+.rbc-event-label {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  opacity: 0.9 !important;
+}
+
+/* Event content */
+.rbc-event-content {
+  font-weight: 500 !important;
+  color: white !important;
+}
+
+/* Today highlighting */
+.rbc-today {
+  background-color: #eff6ff !important;
+}
+
+/* Time slots */
+.rbc-time-slot {
+  min-height: 40px !important;
+}
+
+/* Calendar header */
+.rbc-header {
+  padding: 12px 4px !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  color: #374151 !important;
+  border-bottom: 2px solid #e5e7eb !important;
+}
+
+/* Month view day cells */
+.rbc-month-view .rbc-day-bg {
+  transition: background-color 0.2s !important;
+}
+
+.rbc-month-view .rbc-day-bg:hover {
+  background-color: #f9fafb !important;
+}
+
+/* Selected date */
+.rbc-selected-cell {
+  background-color: #dbeafe !important;
+}
+
+/* Off-range dates (previous/next month) */
+.rbc-off-range {
+  color: #9ca3af !important;
+}
+
+.rbc-off-range-bg {
+  background-color: #f9fafb !important;
+}
+
+/* Event in month view - limit height and show ellipsis */
+.rbc-month-view .rbc-event {
+  max-height: 60px !important;
+  overflow: hidden !important;
+}
+
+/* Week and day view improvements */
+.rbc-time-content {
+  border-top: 2px solid #e5e7eb !important;
+}
+
+.rbc-time-column {
+  min-width: 60px !important;
+}
+
+.rbc-timeslot-group {
+  min-height: 60px !important;
+  border-left: 1px solid #e5e7eb !important;
+}
+
+/* Current time indicator */
+.rbc-current-time-indicator {
+  background-color: #3b82f6 !important;
+  height: 2px !important;
+}
+
+/* Toolbar */
+.rbc-toolbar {
+  padding: 12px 0 !important;
+  margin-bottom: 16px !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+.rbc-toolbar button {
+  padding: 8px 16px !important;
+  border: 1px solid #d1d5db !important;
+  background: white !important;
+  color: #374151 !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s !important;
+}
+
+.rbc-toolbar button:hover {
+  background: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+.rbc-toolbar button.rbc-active,
+.rbc-toolbar button:active {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rbc-event {
+    font-size: 0.75rem !important;
+    padding: 2px 4px !important;
+  }
+  
+  .rbc-header {
+    font-size: 0.75rem !important;
+    padding: 8px 2px !important;
+  }
+  
+  .rbc-toolbar {
+    font-size: 0.875rem !important;
+  }
+  
+  .rbc-toolbar button {
+    padding: 6px 12px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .rbc-month-view .rbc-event {
+    max-height: 40px !important;
+  }
+}
+
+/* Improve drag and drop visual feedback */
+.rbc-addons-dnd-dragging {
+  opacity: 0.6 !important;
+}
+
+.rbc-addons-dnd-over {
+  background-color: #dbeafe !important;
+}
+
+/* Resize handles */
+.rbc-addons-dnd-resize-anchor {
+  height: 8px !important;
+  cursor: ns-resize !important;
+}
+
+.rbc-addons-dnd-resize-anchor:hover {
+  background-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Agenda view improvements */
+.rbc-agenda-view {
+  font-size: 0.875rem !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table {
+  border: 1px solid #e5e7eb !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  padding: 8px 12px !important;
+}
+
+.rbc-agenda-date-cell,
+.rbc-agenda-time-cell {
+  white-space: nowrap !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+}
+
+.rbc-agenda-event-cell {
+  font-weight: 500 !important;
+}
