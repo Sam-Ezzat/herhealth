@@ -2,20 +2,27 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import visitService, { PatientVisitHistory as VisitHistoryType } from '../../services/visit.service';
+import visitPaymentService, { VisitPayment } from '../../services/visit-payment.service';
 import patientService, { Patient } from '../../services/patient.service';
-import { FiArrowLeft, FiPlus, FiCalendar, FiHeart, FiUser, FiEdit2 } from 'react-icons/fi';
+import PaymentModal from '../../components/PaymentModal';
+import { FiArrowLeft, FiPlus, FiCalendar, FiHeart, FiUser, FiEdit2, FiDollarSign, FiCheckCircle, FiTrash2 } from 'react-icons/fi';
 
 const PatientVisitHistory = () => {
   const navigate = useNavigate();
   const { patientId } = useParams<{ patientId: string }>();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visitHistory, setVisitHistory] = useState<VisitHistoryType[]>([]);
+  const [payments, setPayments] = useState<VisitPayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedVisitId, setSelectedVisitId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (patientId) {
       loadPatientData();
       loadVisitHistory();
+      loadPayments();
     }
   }, [patientId]);
 
@@ -42,6 +49,50 @@ const PatientVisitHistory = () => {
       setVisitHistory([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPayments = async () => {
+    if (!patientId) return;
+    try {
+      const result = await visitPaymentService.getPatientPayments(patientId);
+      setPayments(result || []);
+    } catch (error: any) {
+      console.error('Error loading payments:', error);
+      setPayments([]);
+    }
+  };
+
+  const hasPayment = (visitId: string) => {
+    return payments.some(p => p.visit_id === visitId);
+  };
+
+  const getPaymentForVisit = (visitId: string) => {
+    return payments.find(p => p.visit_id === visitId);
+  };
+
+  const handleAddPayment = (visitId?: string) => {
+    setSelectedVisitId(visitId);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleDeleteVisit = async (visitId: string, visitDate: string) => {
+    if (!window.confirm(`Are you sure you want to delete this visit from ${formatDate(visitDate)}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeletingId(visitId);
+      await visitService.delete(visitId);
+      toast.success('Visit deleted successfully');
+      
+      // Reload visit history
+      await loadVisitHistory();
+    } catch (error: any) {
+      console.error('Error deleting visit:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete visit');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -172,12 +223,38 @@ const PatientVisitHistory = () => {
                           {getPregnancyWeekText(visit.pregnancy_week)}
                         </div>
                       )}
+                      {hasPayment(visit.id) ? (
+                        <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium flex items-center gap-1">
+                          <FiCheckCircle size={14} />
+                          Paid
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleAddPayment(visit.id)}
+                          className="px-3 py-1 bg-yellow-100 text-yellow-800 hover:bg-yellow-200 rounded-full text-sm font-medium flex items-center gap-1 transition"
+                        >
+                          <FiDollarSign size={14} />
+                          Add Payment
+                        </button>
+                      )}
                       <button
                         onClick={() => navigate(`/visits/${visit.id}/edit`)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                         title="Edit Visit"
                       >
                         <FiEdit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVisit(visit.id, visit.visit_date)}
+                        disabled={deletingId === visit.id}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete Visit"
+                      >
+                        {deletingId === visit.id ? (
+                          <div className="animate-spin rounded-full h-[18px] w-[18px] border-b-2 border-red-600"></div>
+                        ) : (
+                          <FiTrash2 size={18} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -233,6 +310,37 @@ const PatientVisitHistory = () => {
                       </div>
                     )}
 
+                    {/* Payment Information */}
+                    {hasPayment(visit.id) && (
+                      <div className="border-t border-gray-200 pt-3 mt-3">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Payment:</p>
+                        {(() => {
+                          const payment = getPaymentForVisit(visit.id);
+                          return payment ? (
+                            <div className="bg-green-50 p-3 rounded-lg border-l-4 border-green-400 flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div>
+                                  <span className="text-xs text-gray-600">Amount:</span>
+                                  <p className="font-semibold text-gray-900">EGP {Number(payment.amount).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-gray-600">Method:</span>
+                                  <p className="text-sm text-gray-900">{payment.method}</p>
+                                </div>
+                                {payment.created_by_name && (
+                                  <div>
+                                    <span className="text-xs text-gray-600">By:</span>
+                                    <p className="text-sm text-gray-900">{payment.created_by_name}</p>
+                                  </div>
+                                )}
+                              </div>
+                              <FiCheckCircle className="text-green-600" size={20} />
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                    )}
+
                     {/* View Full Details Button */}
                     <div className="pt-2">
                       <button
@@ -249,6 +357,23 @@ const PatientVisitHistory = () => {
           </div>
         )}
       </div>
+
+      {/* Payment Modal */}
+      {patient && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setSelectedVisitId(undefined);
+          }}
+          patientId={patient.id}
+          patientName={`${patient.first_name} ${patient.last_name}`}
+          preSelectedVisitId={selectedVisitId}
+          onPaymentCreated={() => {
+            loadPayments();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -44,10 +44,29 @@ const PatientList = () => {
         limit,
         offset,
       });
-      setPatients(result.patients);
-      setTotal(result.total);
+      
+      // Handle response structure
+      if (result && typeof result === 'object') {
+        if ('patients' in result && 'total' in result) {
+          setPatients(result.patients || []);
+          setTotal(result.total || 0);
+        } else {
+          console.error('Unexpected response structure:', result);
+          toast.error('Invalid response format from server');
+          setPatients([]);
+          setTotal(0);
+        }
+      } else {
+        console.error('Invalid response:', result);
+        toast.error('Invalid response from server');
+        setPatients([]);
+        setTotal(0);
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load patients');
+      console.error('Error loading patients:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to load patients');
+      setPatients([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }

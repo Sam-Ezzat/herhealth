@@ -4,10 +4,12 @@ export interface Appointment {
   id: string;
   patient_id: string;
   doctor_id: string;
+  calendar_id?: string;
   start_at: string;
   end_at: string;
   type: string;
-  status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show' | 'no-answer';
+  reservation_type?: string;
   notes?: string;
   created_by?: string;
   created_at: string;
@@ -20,6 +22,9 @@ export interface Appointment {
   patient_color_name?: string;
   created_by_name?: string;
   created_by_role?: string;
+  calendar_color_code?: string;
+  calendar_color_name?: string;
+  calendar_name?: string;
 }
 
 export interface AppointmentStats {

@@ -87,10 +87,15 @@ const AppointmentCalendar = () => {
   const loadPatients = async () => {
     try {
       const result = await patientService.getAll();
-      setPatients(result.patients || []);
+      if (result && 'patients' in result) {
+        setPatients(result.patients || []);
+      } else {
+        setPatients([]);
+      }
     } catch (error: any) {
       console.error('Error loading patients:', error);
-      toast.error('Failed to load patients');
+      toast.error(error.response?.data?.error || error.message || 'Failed to load patients');
+      setPatients([]);
     }
   };
 
@@ -376,6 +381,9 @@ const AppointmentCalendar = () => {
       case 'no-show':
         backgroundColor = '#f97316'; // orange
         break;
+      case 'no-answer':
+        backgroundColor = '#a855f7'; // purple
+        break;
     }
 
     return {
@@ -649,7 +657,8 @@ const AppointmentCalendar = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="Clinic">Clinic</option>
-                      <option value="phone">Phone</option>
+                      <option value="samar_phone">Samar Phone</option>
+                      <option value="Habiba_phone">Habiba Phone</option>
                       <option value="Doctor">Doctor</option>
                       <option value="website">Website</option>
                     </select>
@@ -761,13 +770,14 @@ const AppointmentCalendar = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Status <span className="text-red-500">*</span>
                     </label>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                       {[
                         { value: 'scheduled', label: 'Scheduled', color: 'bg-blue-100 text-blue-800 border-blue-300' },
                         { value: 'confirmed', label: 'Confirmed', color: 'bg-green-100 text-green-800 border-green-300' },
                         { value: 'completed', label: 'Completed', color: 'bg-gray-100 text-gray-800 border-gray-300' },
                         { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300' },
                         { value: 'no-show', label: 'No Show', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+                        { value: 'no-answer', label: 'No Answer', color: 'bg-purple-100 text-purple-800 border-purple-300' },
                       ].map((status) => (
                         <button
                           key={status.value}
@@ -860,6 +870,10 @@ const AppointmentCalendar = () => {
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: '#f97316' }}></div>
             <span className="text-sm text-gray-600">No Show</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#a855f7' }}></div>
+            <span className="text-sm text-gray-600">No Answer</span>
           </div>
         </div>
       </div>

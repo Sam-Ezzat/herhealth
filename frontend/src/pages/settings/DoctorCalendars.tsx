@@ -10,6 +10,9 @@ interface DoctorCalendar {
   name: string;
   timezone: string;
   is_active: boolean;
+  color_code?: string;
+  color_name?: string;
+  notes?: string;
   working_hours?: WorkingHour[];
   time_slots?: TimeSlot[];
 }
@@ -52,6 +55,9 @@ const DoctorCalendars = () => {
     name: '',
     timezone: 'UTC',
     is_active: true,
+    color_code: '#3B82F6',
+    color_name: '#3B82F6',
+    notes: '',
     weekendDays: [4, 5] // Default: Thursday and Friday
   });
   
@@ -87,7 +93,7 @@ const DoctorCalendars = () => {
   const fetchCalendars = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/calendars');
+      const response = await api.get<any>('/calendars');
       // Extract data from response - handle {success, data} structure
       const result = response.data;
       const data = result?.data || result;
@@ -103,7 +109,7 @@ const DoctorCalendars = () => {
 
   const fetchDoctors = async () => {
     try {
-      const response = await api.get('/doctors');
+      const response = await api.get<any>('/doctors');
       const result = response.data;
       const data = result?.data || result;
       setDoctors(Array.isArray(data) ? data : []);
@@ -121,18 +127,25 @@ const DoctorCalendars = () => {
       name: '',
       timezone: 'UTC',
       is_active: true,
+      color_code: '#3B82F6',
+      color_name: '#3B82F6',
+      notes: '',
       weekendDays: [4, 5]
     });
     setShowCalendarModal(true);
   };
 
   const handleEditCalendar = (calendar: DoctorCalendar) => {
+    const colorCode = calendar.color_code || '#3B82F6';
     setEditingCalendar(calendar);
     setCalendarForm({
       doctor_id: calendar.doctor_id,
       name: calendar.name,
       timezone: calendar.timezone,
       is_active: calendar.is_active,
+      color_code: colorCode,
+      color_name: colorCode,
+      notes: calendar.notes || '',
       weekendDays: []
     });
     setShowCalendarModal(true);
@@ -152,25 +165,45 @@ const DoctorCalendars = () => {
     try {
       if (editingCalendar) {
         // Update existing calendar
-        await api.put(`/calendars/${editingCalendar.id}`, {
+        const updateData = {
           name: calendarForm.name,
           timezone: calendarForm.timezone,
-          is_active: calendarForm.is_active
-        });
+          is_active: calendarForm.is_active,
+          color_code: calendarForm.color_code,
+          color_name: calendarForm.color_name,
+          notes: calendarForm.notes
+        };
+        
+        const response = await api.put(`/calendars/${editingCalendar.id}`, updateData);
+        
+        // Immediately update the local state to reflect the change
+        setCalendars(prevCalendars => 
+          prevCalendars.map(cal => 
+            cal.id === editingCalendar.id 
+              ? { ...cal, ...response.data.data || response.data }
+              : cal
+          )
+        );
+        
         toast.success('Calendar updated successfully');
+        setShowCalendarModal(false);
+        setEditingCalendar(null);
       } else {
         // Create new calendar
-        const response = await api.post('/calendars', {
+        const response = await api.post<any>('/calendars', {
           doctor_id: calendarForm.doctor_id,
           name: calendarForm.name,
           timezone: calendarForm.timezone,
-          is_active: calendarForm.is_active
+          is_active: calendarForm.is_active,
+          color_code: calendarForm.color_code,
+          color_name: calendarForm.color_name,
+          notes: calendarForm.notes
         });
         
         const newCalendar = response.data.data || response.data;
         
         // Create default working hours for all days
-        const workingHoursPromises = dayNames.map((day, index) => {
+        const workingHoursPromises = dayNames.map((_, index) => {
           const isWeekend = calendarForm.weekendDays.includes(index);
           return api.post(`/calendars/${newCalendar.id}/working-hours`, {
             day_of_week: index,
@@ -183,9 +216,11 @@ const DoctorCalendars = () => {
         
         await Promise.all(workingHoursPromises);
         toast.success('Calendar created successfully with working hours');
+        setShowCalendarModal(false);
+        
+        // Refresh calendars to get complete data with working hours
+        await fetchCalendars();
       }
-      setShowCalendarModal(false);
-      await fetchCalendars();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to save calendar');
     }
@@ -294,10 +329,10 @@ const DoctorCalendars = () => {
     
     try {
       if (editingTimeSlot) {
-        const response = await api.put(`/calendars/time-slots/${editingTimeSlot.id}`, timeSlotForm);
+        await api.put(`/calendars/time-slots/${editingTimeSlot.id}`, timeSlotForm);
         toast.success('Time slot updated successfully');
       } else {
-        const response = await api.post(`/calendars/${selectedCalendar}/time-slots`, timeSlotForm);
+        await api.post(`/calendars/${selectedCalendar}/time-slots`, timeSlotForm);
         toast.success('Time slot added successfully');
       }
       setShowTimeSlotsModal(false);
@@ -345,7 +380,10 @@ const DoctorCalendars = () => {
         {calendars.map((calendar) => (
           <div key={calendar.id} className="bg-white rounded-lg shadow-md overflow-hidden">
             {/* Calendar Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl cursor-pointer" onClick={() => {
+            <div 
+              className="text-white p-6 rounded-t-xl cursor-pointer" 
+              style={{ backgroundColor: calendar.color_code || '#3B82F6' }}
+              onClick={() => {
               const newExpanded = new Set(expandedCalendars);
               if (newExpanded.has(calendar.id)) {
                 newExpanded.delete(calendar.id);
@@ -356,7 +394,7 @@ const DoctorCalendars = () => {
             }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <button className="text-white hover:bg-blue-800 p-1 rounded" onClick={(e) => {
+                  <button className="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded" onClick={(e) => {
                     e.stopPropagation();
                     const newExpanded = new Set(expandedCalendars);
                     if (newExpanded.has(calendar.id)) {
@@ -370,7 +408,7 @@ const DoctorCalendars = () => {
                   </button>
                   <div>
                     <h2 className="text-xl font-semibold">{calendar.doctor_name}</h2>
-                    <p className="text-blue-100 text-sm">{calendar.name}</p>
+                    <p className="text-white text-opacity-90 text-sm">{calendar.name}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -817,6 +855,46 @@ const DoctorCalendars = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Calendar Color <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={calendarForm.color_code}
+                    onChange={(e) =>
+                      setCalendarForm({ ...calendarForm, color_code: e.target.value, color_name: e.target.value })
+                    }
+                    className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={calendarForm.color_code}
+                    onChange={(e) =>
+                      setCalendarForm({ ...calendarForm, color_code: e.target.value, color_name: e.target.value })
+                    }
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="#3B82F6"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={calendarForm.notes}
+                  onChange={(e) =>
+                    setCalendarForm({ ...calendarForm, notes: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Additional notes about this calendar..."
+                />
               </div>
 
               {!editingCalendar && (

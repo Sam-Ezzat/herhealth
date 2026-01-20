@@ -104,6 +104,7 @@ const AppointmentList = () => {
       case 'completed': return 'bg-gray-100 text-gray-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       case 'no-show': return 'bg-orange-100 text-orange-800';
+      case 'no-answer': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -235,6 +236,7 @@ const AppointmentList = () => {
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
             <option value="no-show">No Show</option>
+            <option value="no-answer">No Answer</option>
           </select>
           <input
             type="text"
@@ -315,11 +317,9 @@ const AppointmentList = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Reservation Type
                   </th>
-                  {activeTab === 'archive' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Reserved By
-                    </th>
-                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reserved By
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
@@ -329,8 +329,21 @@ const AppointmentList = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {appointments?.map((appointment) => (
-                  <tr key={appointment.id} className="hover:bg-gray-50">
+                {appointments?.map((appointment) => {
+                  const calendarColor = (appointment as any).calendar_color_code;
+                  const rowStyle = calendarColor 
+                    ? { 
+                        backgroundColor: `${calendarColor}15`, // 15 is hex for ~8% opacity
+                        borderLeft: `4px solid ${calendarColor}`
+                      }
+                    : {};
+                  
+                  return (
+                  <tr 
+                    key={appointment.id} 
+                    className="hover:brightness-95 transition-all"
+                    style={rowStyle}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2 text-sm">
                         <FiCalendar className="text-gray-400" />
@@ -351,7 +364,7 @@ const AppointmentList = () => {
                           <div 
                             className="w-3 h-3 rounded-full border border-gray-300" 
                             style={{ backgroundColor: appointment.patient_color_code }}
-                            title={`Patient color: ${appointment.patient_color_code}`}
+                            title={`Patient color: ${appointment.patient_color_name || appointment.patient_color_code}`}
                           />
                         )}
                         <div>
@@ -368,6 +381,11 @@ const AppointmentList = () => {
                       <div className="text-sm text-gray-900">
                        {appointment.doctor_name}
                       </div>
+                      {(appointment as any).calendar_name && (
+                        <div className="text-xs text-gray-500">
+                          📅 {(appointment as any).calendar_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{appointment.type}</div>
@@ -376,18 +394,16 @@ const AppointmentList = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700">{(appointment as any).reservation_type || 'Clinic'}</div>
                     </td>
-                    {activeTab === 'archive' && (
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {appointment.created_by_name ? (
-                          <div className="text-sm">
-                            <div className="font-medium text-gray-900">{appointment.created_by_name}</div>
-                            <div className="text-xs text-gray-500">{appointment.created_by_role || 'Staff'}</div>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
-                      </td>
-                    )}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {appointment.created_by_name ? (
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900">{appointment.created_by_name}</div>
+                          <div className="text-xs text-gray-500">{appointment.created_by_role || 'Staff'}</div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(appointment.status)}`}>
                         {appointment.status}
@@ -419,7 +435,8 @@ const AppointmentList = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

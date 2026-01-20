@@ -11,6 +11,7 @@ import calendarRoutes from './calendar.routes';
 import whatsappRoutes from './whatsapp.routes';
 import colorCodeRoutes from './colorCode.routes';
 import roleRoutes from './role.routes';
+import visitPaymentRoutes from './visit-payment.routes';
 
 const router = Router();
 
@@ -37,6 +38,9 @@ router.use('/appointments', appointmentRoutes);
 
 // Visit routes
 router.use('/visits', visitRoutes);
+
+// Visit Payment routes
+router.use('/', visitPaymentRoutes);
 
 // Pregnancy journey routes
 router.use('/pregnancies', pregnancyRoutes);

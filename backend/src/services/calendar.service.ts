@@ -53,7 +53,9 @@ export const getOrCreateDoctorCalendar = async (doctorId: string) => {
       name: 'Main Calendar',
       description: 'Default calendar',
       is_active: true,
-      timezone: 'UTC'
+      timezone: 'UTC',
+      color_code: '#3B82F6',
+      color_name: 'Blue'
     });
   }
   
@@ -68,13 +70,37 @@ export const getOrCreateDoctorCalendar = async (doctorId: string) => {
   };
 };
 
+// Get all calendars for a specific doctor
+export const getDoctorCalendars = async (doctorId: string) => {
+  const calendars = await CalendarModel.findCalendarsByDoctorId(doctorId);
+  
+  // For each calendar, get working hours and time slots
+  const calendarsWithDetails = await Promise.all(
+    calendars.map(async (calendar: any) => {
+      const working_hours = await CalendarModel.findWorkingHoursByCalendarId(calendar.id);
+      const time_slots = await CalendarModel.findTimeSlotsByCalendarId(calendar.id);
+      
+      return {
+        ...calendar,
+        working_hours,
+        time_slots
+      };
+    })
+  );
+  
+  return calendarsWithDetails;
+};
+
 export const createCalendar = async (calendarData: any) => {
   const calendar = await CalendarModel.createDoctorCalendar({
     doctor_id: calendarData.doctor_id,
     name: calendarData.name || 'Main Calendar',
     description: calendarData.description || 'Default calendar',
     is_active: calendarData.is_active !== undefined ? calendarData.is_active : true,
-    timezone: calendarData.timezone || 'UTC'
+    timezone: calendarData.timezone || 'UTC',
+    color_code: calendarData.color_code || '#3B82F6',
+    color_name: calendarData.color_name || 'Blue',
+    notes: calendarData.notes || null
   });
   
   return calendar;
@@ -364,11 +390,23 @@ export const emergencyCancelRange = async (
 };
 
 // Get available time slots for a doctor on a specific date
-export const getAvailableTimeSlots = async (doctorId: string, date: string) => {
-  // Get doctor's calendar
-  const calendar = await CalendarModel.findCalendarByDoctorId(doctorId);
-  if (!calendar) {
-    throw ApiError.notFound('Calendar not found for this doctor');
+export const getAvailableTimeSlots = async (doctorId: string, date: string, calendarId?: string) => {
+  // Get doctor's calendar - use specific calendar if provided, otherwise get default
+  let calendar;
+  if (calendarId) {
+    calendar = await CalendarModel.findCalendarById(calendarId);
+    if (!calendar) {
+      throw ApiError.notFound('Calendar not found');
+    }
+    // Verify calendar belongs to the doctor
+    if (calendar.doctor_id !== doctorId) {
+      throw ApiError.forbidden('Calendar does not belong to this doctor');
+    }
+  } else {
+    calendar = await CalendarModel.findCalendarByDoctorId(doctorId);
+    if (!calendar) {
+      throw ApiError.notFound('Calendar not found for this doctor');
+    }
   }
 
   // Parse the date
@@ -441,9 +479,16 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string) => {
   const endTime = new Date(targetDate);
   endTime.setHours(endHour, endMinute, 0, 0);
 
+  // Get current time to check for past slots
+  const now = new Date();
+  const isToday = targetDate.toDateString() === now.toDateString();
+
   while (currentTime < endTime) {
     const slotStart = new Date(currentTime);
     const slotEnd = new Date(currentTime.getTime() + slotConfig.slot_duration * 60000);
+
+    // Check if slot is in the past (only for today)
+    const isPast = isToday && slotEnd <= now;
 
     // Check if slot conflicts with existing appointments
     const bookedCount = existingAppointments.filter((apt: any) => {
@@ -452,7 +497,8 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string) => {
       return (slotStart < aptEnd && slotEnd > aptStart);
     }).length;
 
-    const available = bookedCount < slotConfig.max_appointments_per_slot;
+    // Slot is available if: not in the past AND not fully booked
+    const available = !isPast && bookedCount < slotConfig.max_appointments_per_slot;
 
     slots.push({
       start_time: slotStart.toISOString(),

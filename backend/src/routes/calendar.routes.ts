@@ -9,14 +9,18 @@ const router = express.Router();
 // Get all calendars
 router.get('/', authenticate, calendarController.getAllCalendars);
 
+// Get available time slots for a doctor on a specific date (MUST be before /:id route)
+router.get('/available-slots', authenticate, calendarController.getAvailableTimeSlotsForDoctor);
+
+// Doctor Calendar (specific routes before generic /:id)
+router.get('/doctor/:doctorId', authenticate, calendarController.getDoctorCalendar);
+router.get('/doctor/:doctorId/all', authenticate, calendarController.getDoctorCalendars);
+
 // Calendar CRUD
 router.get('/:id', authenticate, calendarController.getCalendarById);
 router.post('/', authenticate, validate(calendarValidator.createCalendarSchema), calendarController.createCalendar);
 router.put('/:id', authenticate, validate(calendarValidator.updateCalendarSchema), calendarController.updateCalendar);
 router.delete('/:id', authenticate, calendarController.deleteCalendar);
-
-// Doctor Calendar
-router.get('/doctor/:doctorId', authenticate, calendarController.getDoctorCalendar);
 
 // Working Hours
 router.get('/:calendarId/working-hours', authenticate, calendarController.getWorkingHours);
@@ -37,9 +41,6 @@ router.delete('/exceptions/:id', authenticate, calendarController.deleteExceptio
 
 // Preview affected appointments
 router.get('/:calendarId/affected-appointments', authenticate, calendarController.previewAffectedAppointments);
-
-// Get available time slots for a doctor on a specific date
-router.get('/available-slots', authenticate, calendarController.getAvailableTimeSlotsForDoctor);
 
 // Block time range
 router.post('/:calendarId/block-time-range', authenticate, calendarController.blockTimeRange);

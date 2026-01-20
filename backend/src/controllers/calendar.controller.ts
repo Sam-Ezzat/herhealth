@@ -59,6 +59,21 @@ export const getDoctorCalendar = async (req: Request, res: Response, next: NextF
   }
 };
 
+// Get all calendars for a specific doctor
+export const getDoctorCalendars = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { doctorId } = req.params;
+    const calendars = await CalendarService.getDoctorCalendars(doctorId);
+    
+    res.json({
+      success: true,
+      data: calendars
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Update calendar
 export const updateCalendar = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -287,7 +302,7 @@ export const previewAffectedAppointments = async (req: Request, res: Response, n
 // Get available time slots for a doctor on a specific date
 export const getAvailableTimeSlotsForDoctor = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { doctorId, date } = req.query;
+    const { doctorId, date, calendarId } = req.query;
     
     if (!doctorId || !date) {
       res.status(400).json({
@@ -299,7 +314,8 @@ export const getAvailableTimeSlotsForDoctor = async (req: Request, res: Response
     
     const slotsData = await CalendarService.getAvailableTimeSlots(
       doctorId as string,
-      date as string
+      date as string,
+      calendarId as string | undefined
     );
     
     res.json({

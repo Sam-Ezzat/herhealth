@@ -2,17 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import visitService, { Visit } from '../../services/visit.service';
-import { FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiUser, FiFileText, FiHeart } from 'react-icons/fi';
+import visitPaymentService, { VisitPayment } from '../../services/visit-payment.service';
+import PaymentModal from '../../components/PaymentModal';
+import { FiArrowLeft, FiEdit2, FiTrash2, FiCalendar, FiUser, FiFileText, FiHeart, FiDollarSign, FiCheckCircle } from 'react-icons/fi';
 
 const VisitDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [visit, setVisit] = useState<Visit | null>(null);
+  const [payment, setPayment] = useState<VisitPayment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadVisit();
+      loadPayment();
     }
   }, [id]);
 
@@ -27,6 +32,17 @@ const VisitDetail = () => {
       navigate('/visits');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPayment = async () => {
+    if (!id) return;
+    try {
+      const result = await visitPaymentService.getByVisitId(id);
+      setPayment(result);
+    } catch (error: any) {
+      console.error('Error loading payment:', error);
+      setPayment(null);
     }
   };
 
@@ -201,6 +217,68 @@ const VisitDetail = () => {
             </div>
           )}
 
+          {/* Payment Information */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FiDollarSign className="text-green-600" size={20} />
+                <h3 className="text-lg font-semibold text-gray-800">Payment Information</h3>
+              </div>
+              {!payment && (
+                <button
+                  onClick={() => setIsPaymentModalOpen(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 text-sm"
+                >
+                  <FiDollarSign />
+                  Add Payment
+                </button>
+              )}
+            </div>
+            {payment ? (
+              <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-600 space-y-3">
+                <div className="flex items-center gap-2 text-green-700 font-medium">
+                  <FiCheckCircle />
+                  Payment Recorded
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm text-gray-600">Amount:</span>
+                    <p className="font-semibold text-gray-900">EGP {payment.amount.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Method:</span>
+                    <p className="font-semibold text-gray-900">{payment.method}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">Payment Date:</span>
+                    <p className="text-gray-900">{formatDate(payment.payment_date)}</p>
+                  </div>
+                  {payment.created_by_name && (
+                    <div>
+                      <span className="text-sm text-gray-600">Recorded By:</span>
+                      <p className="text-gray-900">{payment.created_by_name}</p>
+                    </div>
+                  )}
+                </div>
+                {payment.notes && (
+                  <div className="pt-3 border-t border-green-200">
+                    <span className="text-sm text-gray-600">Notes:</span>
+                    <p className="text-gray-900 mt-1">{payment.notes}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400">
+                <p className="text-yellow-800">
+                  <strong>No payment recorded for this visit.</strong>
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Click "Add Payment" to record payment information.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Metadata */}
           <div className="pt-6 border-t border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
@@ -214,6 +292,20 @@ const VisitDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {visit && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          patientId={visit.patient_id}
+          patientName={visit.patient_name || 'Unknown Patient'}
+          preSelectedVisitId={visit.id}
+          onPaymentCreated={() => {
+            loadPayment();
+          }}
+        />
+      )}
     </div>
   );
 };

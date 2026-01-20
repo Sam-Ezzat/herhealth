@@ -652,7 +652,8 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
                   required
                 >
                   <option value="Clinic">Clinic</option>
-                  <option value="phone">Phone</option>
+                  <option value="samar_phone">Samar Phone</option>
+                  <option value="Habiba_phone">Habiba Phone</option>
                   <option value="Doctor">Doctor</option>
                   <option value="website">Website</option>
                 </select>

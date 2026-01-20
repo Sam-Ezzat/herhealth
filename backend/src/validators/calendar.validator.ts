@@ -87,14 +87,20 @@ export const createCalendarSchema = Joi.object({
   name: Joi.string().min(1).max(100).required(),
   description: Joi.string().max(500).optional(),
   timezone: Joi.string().valid(...windowsTimezones).default('UTC'),
-  is_active: Joi.boolean().default(true)
+  is_active: Joi.boolean().default(true),
+  color_code: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color_name: Joi.string().max(100).optional().allow(''),
+  notes: Joi.string().max(1000).optional().allow('')
 });
 
 export const updateCalendarSchema = Joi.object({
   name: Joi.string().min(1).max(100).optional(),
   description: Joi.string().max(500).optional(),
   timezone: Joi.string().valid(...windowsTimezones).optional(),
-  is_active: Joi.boolean().optional()
+  is_active: Joi.boolean().optional(),
+  color_code: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color_name: Joi.string().max(100).optional().allow(''),
+  notes: Joi.string().max(1000).optional().allow('')
 });
 
 export const createWorkingHoursSchema = Joi.object({

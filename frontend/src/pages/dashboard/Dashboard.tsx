@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { FiCalendar, FiUsers, FiUserCheck, FiClipboard, FiSearch, FiFilter } from 'react-icons/fi';
+import { FiCalendar, FiUsers, FiUserCheck, FiClipboard, FiSearch, FiFilter, FiDollarSign } from 'react-icons/fi';
 import QuickAppointmentModal from '../../components/QuickAppointmentModal';
+import PaymentInvoiceModal from '../../components/PaymentInvoiceModal';
 import api from '../../services/api';
+import visitPaymentService from '../../services/visit-payment.service';
 import { Link } from 'react-router-dom';
 
 interface DashboardStats {
@@ -27,12 +29,15 @@ interface Appointment {
 
 const Dashboard = () => {
   const [showQuickAppointment, setShowQuickAppointment] = useState(false);
+  const [showPaymentInvoice, setShowPaymentInvoice] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
     todayAppointments: 0,
     activeDoctors: 0,
     pendingVisits: 0,
   });
+  const [todayPayments, setTodayPayments] = useState<number>(0);
+  const [paymentStats, setPaymentStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
@@ -42,6 +47,7 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardStats();
     fetchTodayAppointments();
+    fetchTodayPayments();
   }, []);
 
   useEffect(() => {
@@ -96,6 +102,19 @@ const Dashboard = () => {
     }
   };
 
+  const fetchTodayPayments = async () => {
+    try {
+      const stats = await visitPaymentService.getTodayStats();
+      console.log('Today payment stats:', stats);
+      setPaymentStats(stats);
+      setTodayPayments(stats ? parseFloat(stats.total_amount) || 0 : 0);
+    } catch (error) {
+      console.error('Error fetching today payments:', error);
+      setTodayPayments(0);
+      setPaymentStats(null);
+    }
+  };
+
   const filterAppointments = () => {
     let filtered = [...appointments];
 
@@ -117,6 +136,7 @@ const Dashboard = () => {
   const handleAppointmentSuccess = () => {
     fetchDashboardStats();
     fetchTodayAppointments();
+    fetchTodayPayments();
   };
 
   const handleOpenModal = () => {
@@ -130,6 +150,7 @@ const Dashboard = () => {
       case 'completed': return 'bg-gray-100 text-gray-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       case 'no-show': return 'bg-yellow-100 text-yellow-800';
+      case 'no-answer': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -213,7 +234,31 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+        <div 
+          onClick={() => setShowPaymentInvoice(true)}
+          className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-all cursor-pointer hover:scale-105 border-2 border-transparent hover:border-emerald-200"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-gray-500 text-sm font-medium">Today's Payments</h3>
+              <p className="text-3xl font-bold text-gray-800 mt-2">
+                {loading ? '...' : `EGP ${todayPayments.toFixed(2)}`}
+              </p>
+              <p className="text-xs text-emerald-600 mt-1 font-medium">Click to view invoice</p>
+            </div>
+            <div className="bg-emerald-100 p-3 rounded-full">
+              <FiDollarSign className="text-emerald-600" size={24} />
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Payment Invoice Modal */}
+      <PaymentInvoiceModal 
+        isOpen={showPaymentInvoice}
+        onClose={() => setShowPaymentInvoice(false)}
+        stats={paymentStats}
+      />
 
       {/* Today's Appointments Section */}
       <div className="mt-8 bg-white rounded-lg shadow-md">
@@ -246,6 +291,7 @@ const Dashboard = () => {
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="no-show">No Show</option>
+                <option value="no-answer">No Answer</option>
               </select>
             </div>
           </div>
@@ -276,23 +322,34 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAppointments.map((appointment) => (
-                  <tr key={appointment.id} className="hover:bg-gray-50">
+                {filteredAppointments.map((appointment) => {
+                  const calendarColor = (appointment as any).calendar_color_code;
+                  const rowStyle = calendarColor 
+                    ? { 
+                        backgroundColor: `${calendarColor}15`, // 15 is hex for ~8% opacity
+                        borderLeft: `4px solid ${calendarColor}`
+                      }
+                    : {};
+                  
+                  return (
+                  <tr 
+                    key={appointment.id} 
+                    className="hover:brightness-95 transition-all"
+                    style={rowStyle}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatTime(appointment.start_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {appointment.patient_color_code ? (
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        {appointment.patient_color_code && (
                           <div 
-                            className="w-6 h-6 rounded-full border-2 border-gray-300"
+                            className="w-4 h-4 rounded-full border-2 border-gray-300"
                             style={{ backgroundColor: appointment.patient_color_code }}
-                            title={appointment.patient_color_code}
+                            title={`Patient: ${appointment.patient_color_name || appointment.patient_color_code}`}
                           />
-                        </div>
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-gray-300" />
-                      )}
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link 
@@ -304,6 +361,11 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {appointment.doctor_name || 'N/A'}
+                      {(appointment as any).calendar_name && (
+                        <div className="text-xs text-gray-500">
+                          📅 {(appointment as any).calendar_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {appointment.appointment_type || 'General'}
@@ -325,7 +387,8 @@ const Dashboard = () => {
                       </Link>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

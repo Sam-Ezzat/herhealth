@@ -4,10 +4,11 @@ export interface Appointment {
   id: string;
   patient_id: string;
   doctor_id: string;
+  calendar_id?: string;
   start_at: Date;
   end_at: Date;
   type: string;
-  status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show' | 'no-answer';
   reservation_type?: string;
   notes?: string;
   created_by?: string;
@@ -19,6 +20,9 @@ export interface Appointment {
   patient_phone?: string;
   created_by_name?: string;
   created_by_role?: string;
+  calendar_color_code?: string;
+  calendar_color_name?: string;
+  calendar_name?: string;
 }
 
 export interface AppointmentFilters {
@@ -98,13 +102,17 @@ export const findAllAppointments = async (
       cc.color_name as patient_color_name,
       CONCAT(d.first_name, ' ', d.last_name) as doctor_name,
       u.full_name as created_by_name,
-      r.name as created_by_role
+      r.name as created_by_role,
+      dc.color_code as calendar_color_code,
+      dc.color_name as calendar_color_name,
+      dc.name as calendar_name
     FROM appointments a
     LEFT JOIN patients p ON a.patient_id = p.id
     LEFT JOIN color_code cc ON p.color_code_id = cc.id
     LEFT JOIN doctors d ON a.doctor_id = d.id
     LEFT JOIN users u ON a.created_by = u.id
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN doctor_calendars dc ON a.calendar_id = dc.id
     ${whereClause}
     ORDER BY a.start_at DESC
   `;
@@ -124,13 +132,17 @@ export const findAppointmentById = async (id: string): Promise<Appointment | nul
       cc.color_name as patient_color_name,
       CONCAT(d.first_name, ' ', d.last_name) as doctor_name,
       u.full_name as created_by_name,
-      r.name as created_by_role
+      r.name as created_by_role,
+      dc.color_code as calendar_color_code,
+      dc.color_name as calendar_color_name,
+      dc.name as calendar_name
     FROM appointments a
     LEFT JOIN patients p ON a.patient_id = p.id
     LEFT JOIN color_code cc ON p.color_code_id = cc.id
     LEFT JOIN doctors d ON a.doctor_id = d.id
     LEFT JOIN users u ON a.created_by = u.id
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN doctor_calendars dc ON a.calendar_id = dc.id
     WHERE a.id = $1
   `;
 
@@ -145,6 +157,7 @@ export const createAppointment = async (
   const {
     patient_id,
     doctor_id,
+    calendar_id,
     start_at,
     end_at,
     type,
@@ -156,15 +169,16 @@ export const createAppointment = async (
 
   const sql = `
     INSERT INTO appointments (
-      patient_id, doctor_id, start_at, end_at, type, status, reservation_type, notes, created_by
+      patient_id, doctor_id, calendar_id, start_at, end_at, type, status, reservation_type, notes, created_by
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     RETURNING *
   `;
 
   const values = [
     patient_id,
     doctor_id,
+    calendar_id || null,
     start_at,
     end_at,
     type,

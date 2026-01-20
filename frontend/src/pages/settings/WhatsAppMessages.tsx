@@ -85,10 +85,14 @@ const WhatsAppMessages: React.FC = () => {
       console.log('Loading patients...');
       const response = await patientService.getAll({});
       console.log('Loaded patients:', response);
-      setPatients(response.patients || []);
+      if (response && 'patients' in response) {
+        setPatients(response.patients || []);
+      } else {
+        setPatients([]);
+      }
     } catch (error: any) {
       console.error('Failed to load patients:', error);
-      toast.error('Failed to load patients');
+      toast.error(error.response?.data?.error || error.message || 'Failed to load patients');
       setPatients([]);
     }
   };

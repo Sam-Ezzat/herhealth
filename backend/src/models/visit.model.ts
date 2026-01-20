@@ -222,9 +222,22 @@ export const updateVisit = async (
 
 // Delete visit
 export const deleteVisit = async (id: string): Promise<boolean> => {
-  const sql = `DELETE FROM visits WHERE id = $1`;
-  const result = await query(sql, [id]);
-  return result.rowCount !== null && result.rowCount > 0;
+  try {
+    const sql = `DELETE FROM visits WHERE id = $1`;
+    const result = await query(sql, [id]);
+    return result.rowCount !== null && result.rowCount > 0;
+  } catch (error: any) {
+    // Handle foreign key constraint violation
+    if (error.code === '23503') {
+      // Get the constraint name to provide better error message
+      const constraintName = error.constraint || 'unknown';
+      throw new Error(
+        `Cannot delete visit because it has related records (${constraintName}). ` +
+        'Please delete the related records first.'
+      );
+    }
+    throw error;
+  }
 };
 
 // Get visit statistics

@@ -25,20 +25,26 @@ const AppointmentForm = () => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [colorCodes, setColorCodes] = useState<any[]>([]);
+  const [selectedPatientColorCode, setSelectedPatientColorCode] = useState<string>('');
+  const [doctorCalendars, setDoctorCalendars] = useState<any[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
 
   const [formData, setFormData] = useState<{
     patient_id: string;
     doctor_id: string;
+    calendar_id: string;
     start_at: string;
     end_at: string;
     type: string;
-    status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+    status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show' | 'no-answer';
     reservation_type: string;
     notes: string;
     duration: number;
   }>({
     patient_id: '',
     doctor_id: '',
+    calendar_id: '',
     start_at: '',
     end_at: '',
     type: '',
@@ -58,26 +64,44 @@ const AppointmentForm = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!isEditMode && formData.doctor_id && formData.start_at) {
+    // Only load time slots if we have a doctor and date
+    // For single calendar doctors or when calendar is selected, proceed
+    if (formData.doctor_id && formData.start_at) {
       const appointmentDate = formData.start_at.split('T')[0];
+      
+      // If multiple calendars exist, wait for calendar selection
+      if (doctorCalendars.length > 1 && !formData.calendar_id) {
+        setTimeSlots([]);
+        return;
+      }
+      
+      // Load time slots
       loadAvailableTimeSlots(appointmentDate);
     } else {
       setTimeSlots([]);
     }
-  }, [formData.doctor_id, formData.start_at?.split('T')[0]]);
+  }, [formData.doctor_id, formData.calendar_id, formData.start_at?.split('T')[0], doctorCalendars.length]);
 
   const loadSelections = async () => {
     try {
-      const [patientsData, doctorsData] = await Promise.all([
+      const [patientsData, doctorsData, colorCodesData] = await Promise.all([
         patientService.getAll(),
         doctorService.getAll(),
+        patientService.getColorCodes(),
       ]);
-      setPatients(patientsData.patients || []);
+      if (patientsData && 'patients' in patientsData) {
+        setPatients(patientsData.patients || []);
+      } else {
+        setPatients([]);
+      }
       setDoctors(doctorsData || []);
+      setColorCodes(colorCodesData || []);
     } catch (error: any) {
-      toast.error('Failed to load patients or doctors');
+      console.error('Error loading data:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to load patients or doctors');
       setPatients([]);
       setDoctors([]);
+      setColorCodes([]);
     }
   };
 
@@ -89,9 +113,23 @@ const AppointmentForm = () => {
       const end = new Date(appointment.end_at);
       const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
       
+      // Set patient search text if patient data is available
+      if (appointment.patient_name) {
+        setPatientSearch(appointment.patient_name);
+      }
+      
+      // Load patient details to get color code
+      try {
+        const patient = await patientService.getById(appointment.patient_id);
+        setSelectedPatientColorCode(patient.color_code_id || '');
+      } catch (error) {
+        console.error('Error loading patient details:', error);
+      }
+      
       setFormData({
         patient_id: appointment.patient_id,
         doctor_id: appointment.doctor_id,
+        calendar_id: appointment.calendar_id || '',
         start_at: start.toISOString().slice(0, 16),
         end_at: end.toISOString().slice(0, 16),
         type: appointment.type,
@@ -100,6 +138,11 @@ const AppointmentForm = () => {
         notes: appointment.notes || '',
         duration: durationMinutes,
       });
+      
+      // Load calendars for the doctor
+      if (appointment.doctor_id) {
+        loadDoctorCalendars(appointment.doctor_id);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to load appointment');
       navigate('/appointments');
@@ -111,75 +154,40 @@ const AppointmentForm = () => {
   const loadAvailableTimeSlots = async (appointmentDate: string) => {
     setLoadingSlots(true);
     try {
-      const calendarResponse: any = await api.get(`/calendars/doctor/${formData.doctor_id}`);
-      const calendar = calendarResponse.data?.data || calendarResponse.data || calendarResponse;
-      
-      const selectedDate = new Date(appointmentDate);
-      const dayOfWeek = selectedDate.getDay();
-      
-      const startOfDay = `${appointmentDate}T00:00:00`;
-      const endOfDay = `${appointmentDate}T23:59:59`;
-      
-      const appointmentsResponse: any = await api.get(`/appointments?doctor_id=${formData.doctor_id}&date_from=${startOfDay}&date_to=${endOfDay}`);
-      const appointmentsData = appointmentsResponse.data?.data || appointmentsResponse.data || appointmentsResponse;
-      const existingAppointments = Array.isArray(appointmentsData) ? appointmentsData : [];
-      
-      const activeAppointments = existingAppointments.filter((apt: any) => 
-        apt.status !== 'cancelled' && apt.status !== 'no-show'
-      );
-      
-      let workingHours = null;
-      if (calendar && calendar.working_hours && Array.isArray(calendar.working_hours)) {
-        workingHours = calendar.working_hours.find((wh: any) => 
-          wh.day_of_week === dayOfWeek && wh.is_active
-        );
+      // Build URL with calendarId if available
+      let url = `/calendars/available-slots?doctorId=${formData.doctor_id}&date=${appointmentDate}`;
+      if (formData.calendar_id) {
+        url += `&calendarId=${formData.calendar_id}`;
       }
       
-      const slots: TimeSlot[] = [];
+      // Use the backend API endpoint that handles all validation including past time slots
+      const response: any = await api.get(url);
       
-      if (!workingHours || workingHours.is_closed) {
+      const slotsData = response.data?.data || response.data || response;
+      
+      // Check if day is unavailable
+      if (!slotsData.available) {
         setTimeSlots([]);
-        if (workingHours?.is_closed) {
-          toast.info('This day is marked as closed (weekend/holiday) for this doctor');
-        }
+        toast.info(slotsData.reason || 'No available slots for this date');
         setLoadingSlots(false);
         return;
       }
       
-      const [startHour, startMinute] = workingHours.start_time.split(':').map(Number);
-      const [endHour, endMinute] = workingHours.end_time.split(':').map(Number);
+      // Transform backend slots to frontend format
+      const slots: TimeSlot[] = [];
       
-      let slotDuration = 30;
-      let breakDuration = 0;
-      
-      if (calendar.time_slots && Array.isArray(calendar.time_slots) && calendar.time_slots.length > 0) {
-        const timeSlotConfig = calendar.time_slots[0];
-        slotDuration = timeSlotConfig.slot_duration || 30;
-        breakDuration = timeSlotConfig.break_duration || 0;
-      }
-      
-      let currentHour = startHour;
-      let currentMinute = startMinute;
-      
-      while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
-        const time = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
-        
-        const slotDateTime = new Date(appointmentDate);
-        slotDateTime.setHours(currentHour, currentMinute, 0, 0);
-        
-        const isBooked = activeAppointments.some((apt: any) => {
-          const aptStart = new Date(apt.start_at);
-          const aptEnd = new Date(apt.end_at);
-          return slotDateTime >= aptStart && slotDateTime < aptEnd;
+      if (slotsData.slots && Array.isArray(slotsData.slots)) {
+        slotsData.slots.forEach((slot: any) => {
+          const startTime = new Date(slot.start_time);
+          const hours = startTime.getHours().toString().padStart(2, '0');
+          const minutes = startTime.getMinutes().toString().padStart(2, '0');
+          const time = `${hours}:${minutes}`;
+          
+          slots.push({
+            time,
+            available: slot.available
+          });
         });
-        
-        slots.push({ time, available: !isBooked });
-        
-        currentMinute += slotDuration + breakDuration;
-        if (currentMinute >= 60) {
-          currentHour += Math.floor(currentMinute / 60);
-          currentMinute = currentMinute % 60;
-        }
       }
       
       setTimeSlots(slots);
@@ -189,6 +197,28 @@ const AppointmentForm = () => {
       setTimeSlots([]);
     } finally {
       setLoadingSlots(false);
+    }
+  };
+
+  const loadDoctorCalendars = async (doctorId: string) => {
+    setLoadingCalendars(true);
+    try {
+      const response = await api.get<any>(`/calendars/doctor/${doctorId}/all`);
+      const calendars = response.data?.data || response.data || [];
+      setDoctorCalendars(Array.isArray(calendars) ? calendars : []);
+      
+      // Auto-select calendar if there's only one
+      if (calendars.length === 1) {
+        setFormData(prev => ({ ...prev, calendar_id: calendars[0].id }));
+      } else if (calendars.length === 0) {
+        // No calendars, clear selection
+        setFormData(prev => ({ ...prev, calendar_id: '' }));
+      }
+    } catch (error) {
+      console.error('Error loading doctor calendars:', error);
+      setDoctorCalendars([]);
+    } finally {
+      setLoadingCalendars(false);
     }
   };
 
@@ -269,9 +299,33 @@ const AppointmentForm = () => {
 
       if (isEditMode && id) {
         await appointmentService.update(id, formData);
+        
+        // Update patient color code if changed
+        if (selectedPatientColorCode && formData.patient_id) {
+          try {
+            await patientService.update(formData.patient_id, {
+              color_code_id: selectedPatientColorCode,
+            });
+          } catch (error) {
+            console.error('Error updating patient color code:', error);
+          }
+        }
+        
         toast.success('Appointment updated successfully');
       } else {
         await appointmentService.create(formData);
+        
+        // Update patient color code if specified
+        if (selectedPatientColorCode && formData.patient_id) {
+          try {
+            await patientService.update(formData.patient_id, {
+              color_code_id: selectedPatientColorCode,
+            });
+          } catch (error) {
+            console.error('Error updating patient color code:', error);
+          }
+        }
+        
         toast.success('Appointment created successfully');
       }
 
@@ -315,22 +369,31 @@ const AppointmentForm = () => {
                 Patient <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search and select patient..."
-                  value={patientSearch}
-                  onChange={(e) => {
-                    setPatientSearch(e.target.value);
-                    setShowPatientDropdown(true);
-                    if (!e.target.value) {
-                      setFormData({ ...formData, patient_id: '' });
-                    }
-                  }}
-                  onFocus={() => setShowPatientDropdown(true)}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.patient_id ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
+                <div className="flex items-center gap-2">
+                  {formData.patient_id && patients.find(p => p.id === formData.patient_id)?.color_code && (
+                    <div 
+                      className="w-8 h-8 rounded-full border-2 border-gray-300 flex-shrink-0" 
+                      style={{ backgroundColor: patients.find(p => p.id === formData.patient_id)?.color_code }}
+                      title={`Patient color: ${patients.find(p => p.id === formData.patient_id)?.color_code}`}
+                    />
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Search and select patient..."
+                    value={patientSearch}
+                    onChange={(e) => {
+                      setPatientSearch(e.target.value);
+                      setShowPatientDropdown(true);
+                      if (!e.target.value) {
+                        setFormData({ ...formData, patient_id: '' });
+                      }
+                    }}
+                    onFocus={() => setShowPatientDropdown(true)}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.patient_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                </div>
                 {showPatientDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {patients
@@ -342,11 +405,19 @@ const AppointmentForm = () => {
                       .map((patient) => (
                         <div
                           key={patient.id}
-                          onClick={() => {
+                          onClick={async () => {
                             setFormData({ ...formData, patient_id: patient.id });
                             setPatientSearch(`${patient.first_name} ${patient.last_name}`);
                             setShowPatientDropdown(false);
                             setErrors((prev) => ({ ...prev, patient_id: '' }));
+                            
+                            // Load patient details to get color code
+                            try {
+                              const patientDetails = await patientService.getById(patient.id);
+                              setSelectedPatientColorCode(patientDetails.color_code_id || '');
+                            } catch (error) {
+                              console.error('Error loading patient color code:', error);
+                            }
                           }}
                           className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                         >
@@ -375,9 +446,18 @@ const AppointmentForm = () => {
                 value={formData.doctor_id}
                 onChange={async (e) => {
                   handleChange(e);
-                  if (e.target.value && !isEditMode) {
+                  const doctorId = e.target.value;
+                  
+                  // Clear calendar selection and time slots when doctor changes
+                  setFormData(prev => ({ ...prev, calendar_id: '', start_at: '' }));
+                  setTimeSlots([]);
+                  
+                  if (doctorId) {
+                    // Load calendars for selected doctor
+                    await loadDoctorCalendars(doctorId);
+                    
                     try {
-                      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'}/calendars/doctor/${e.target.value}`, {
+                      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'}/calendars/doctor/${doctorId}`, {
                         headers: {
                           'Authorization': `Bearer ${localStorage.getItem('token')}`
                         }
@@ -390,6 +470,8 @@ const AppointmentForm = () => {
                     } catch (error) {
                       console.error('Error loading doctor calendar:', error);
                     }
+                  } else {
+                    setDoctorCalendars([]);
                   }
                 }}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
@@ -404,6 +486,91 @@ const AppointmentForm = () => {
                 ))}
               </select>
               {errors.doctor_id && <p className="text-red-500 text-sm mt-1">{errors.doctor_id}</p>}
+            </div>
+
+            {/* Calendar Selection - Show only if doctor has multiple calendars */}
+            {formData.doctor_id && doctorCalendars.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Calendar {doctorCalendars.length > 1 && <span className="text-red-500">*</span>}
+                </label>
+                {loadingCalendars ? (
+                  <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                    Loading calendars...
+                  </div>
+                ) : (
+                  <select
+                    name="calendar_id"
+                    value={formData.calendar_id}
+                    onChange={(e) => {
+                      setFormData({ ...formData, calendar_id: e.target.value });
+                      // Clear time slots when calendar changes
+                      setTimeSlots([]);
+                      setFormData(prev => ({ ...prev, start_at: '' }));
+                    }}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.calendar_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    {doctorCalendars.length > 1 && <option value="">Select Calendar</option>}
+                    {doctorCalendars.map((calendar) => (
+                      <option key={calendar.id} value={calendar.id}>
+                        {calendar.name}
+                        {calendar.color_name && ` (${calendar.color_name})`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {errors.calendar_id && <p className="text-red-500 text-sm mt-1">{errors.calendar_id}</p>}
+                {formData.calendar_id && doctorCalendars.length > 0 && (() => {
+                  const selectedCalendar = doctorCalendars.find(c => c.id === formData.calendar_id);
+                  return selectedCalendar?.color_code ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm"
+                        style={{ backgroundColor: selectedCalendar.color_code }}
+                      />
+                      <span className="text-sm text-gray-600 font-medium">
+                        Calendar Color: {selectedCalendar.color_name || selectedCalendar.color_code}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Patient Color Code
+              </label>
+              <select
+                value={selectedPatientColorCode}
+                onChange={(e) => setSelectedPatientColorCode(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">No Color</option>
+                {colorCodes.map((color) => (
+                  <option key={color.id} value={color.id}>
+                    {color.color_name}
+                  </option>
+                ))}
+              </select>
+              {selectedPatientColorCode && colorCodes.length > 0 && (() => {
+                const selectedColor = colorCodes.find((c) => String(c.id) === String(selectedPatientColorCode));
+                return selectedColor ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm"
+                      style={{
+                        backgroundColor: selectedColor.color_hex,
+                      }}
+                    />
+                    <span className="text-sm text-gray-600 font-medium">
+                      {selectedColor.color_name}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
         </div>
@@ -456,7 +623,7 @@ const AppointmentForm = () => {
           </div>
 
           {/* Time Slots */}
-          {!isEditMode && formData.doctor_id && formData.start_at && (
+          {formData.doctor_id && formData.start_at && (
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Available Time Slots <span className="text-red-500">*</span>
@@ -499,17 +666,17 @@ const AppointmentForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Time {!isEditMode && '(Select from slots above)'}
+                Start Time (Select from slots above)
               </label>
               <input
                 type="datetime-local"
                 name="start_at"
                 value={formData.start_at}
                 onChange={handleChange}
-                readOnly={!isEditMode}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  !isEditMode ? 'bg-gray-50' : ''
-                } ${errors.start_at ? 'border-red-500' : 'border-gray-300'}`}
+                readOnly
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 ${
+                  errors.start_at ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
             </div>
 
@@ -558,6 +725,7 @@ const AppointmentForm = () => {
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="no-show">No Show</option>
+                <option value="no-answer">No Answer</option>
               </select>
             </div>
 
@@ -572,7 +740,8 @@ const AppointmentForm = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="Clinic">Clinic</option>
-                <option value="phone">Phone</option>
+                <option value="samar_phone">Samar Phone</option>
+                <option value="Habiba_phone">Habiba Phone</option>
                 <option value="Doctor">Doctor</option>
                 <option value="website">Website</option>
               </select>

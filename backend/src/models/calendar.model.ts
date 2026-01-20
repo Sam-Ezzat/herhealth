@@ -8,6 +8,9 @@ export interface DoctorCalendar {
   description?: string;
   is_active: boolean;
   timezone: string;
+  color_code?: string; // Hex color code (e.g., #FF5733)
+  color_name?: string; // Display name for color (e.g., Red, Blue)
+  notes?: string; // Additional notes for the calendar
   created_at: Date;
   updated_at: Date;
 }
@@ -68,6 +71,12 @@ export const findCalendarByDoctorId = async (doctorId: string): Promise<DoctorCa
   return result.rows[0] || null;
 };
 
+export const findCalendarsByDoctorId = async (doctorId: string): Promise<DoctorCalendar[]> => {
+  const sql = `SELECT * FROM doctor_calendars WHERE doctor_id = $1 AND is_active = true ORDER BY name`;
+  const result = await query(sql, [doctorId]);
+  return result.rows;
+};
+
 export const findCalendarById = async (calendarId: string): Promise<DoctorCalendar | null> => {
   const sql = `SELECT * FROM doctor_calendars WHERE id = $1`;
   const result = await query(sql, [calendarId]);
@@ -75,15 +84,24 @@ export const findCalendarById = async (calendarId: string): Promise<DoctorCalend
 };
 
 export const createDoctorCalendar = async (calendarData: Omit<DoctorCalendar, 'id' | 'created_at' | 'updated_at'>): Promise<DoctorCalendar> => {
-  const { doctor_id, name, description, is_active, timezone } = calendarData;
+  const { doctor_id, name, description, is_active, timezone, color_code, color_name, notes } = calendarData;
   
   const sql = `
-    INSERT INTO doctor_calendars (doctor_id, name, description, is_active, timezone)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO doctor_calendars (doctor_id, name, description, is_active, timezone, color_code, color_name, notes)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `;
   
-  const result = await query(sql, [doctor_id, name, description || null, is_active, timezone]);
+  const result = await query(sql, [
+    doctor_id, 
+    name, 
+    description || null, 
+    is_active, 
+    timezone,
+    color_code || '#3B82F6',
+    color_name || null,
+    notes || null
+  ]);
   return result.rows[0];
 };
 

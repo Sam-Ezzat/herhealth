@@ -57,26 +57,28 @@ export interface PatientStats {
 const patientService = {
   // Get all patients with optional filters
   getAll: async (params?: PatientSearchParams): Promise<PatientsResponse> => {
-    const response = await api.get<{ success: boolean; data: PatientsResponse }>('/patients', params);
-    return (response as any).data || response;
+    const response = await api.get<{ success: boolean; data: PatientsResponse }>('/patients', params) as any;
+    // The API client returns response.data, which is { success: true, data: {...} }
+    // We need to extract the inner 'data' property
+    return response.data || response;
   },
 
   // Get patient by ID
   getById: async (id: string): Promise<Patient> => {
-    const response = await api.get<{ success: boolean; data: Patient }>(`/patients/${id}`);
-    return (response as any).data || response;
+    const response = await api.get<{ success: boolean; data: Patient }>(`/patients/${id}`) as any;
+    return response.data || response;
   },
 
   // Create new patient
   create: async (patientData: Omit<Patient, 'id' | 'created_at' | 'updated_at' | 'color_code_name' | 'color_code_hex'>): Promise<Patient> => {
-    const response = await api.post<{ success: boolean; data: Patient }>('/patients', patientData);
-    return (response as any).data || response;
+    const response = await api.post<{ success: boolean; data: Patient }>('/patients', patientData) as any;
+    return response.data || response;
   },
 
   // Update patient
   update: async (id: string, patientData: Partial<Omit<Patient, 'id' | 'created_at' | 'updated_at' | 'color_code_name' | 'color_code_hex'>>): Promise<Patient> => {
-    const response = await api.put<{ success: boolean; data: Patient }>(`/patients/${id}`, patientData);
-    return (response as any).data || response;
+    const response = await api.put<{ success: boolean; data: Patient }>(`/patients/${id}`, patientData) as any;
+    return response.data || response;
   },
 
   // Delete patient
@@ -86,14 +88,14 @@ const patientService = {
 
   // Get color codes
   getColorCodes: async (): Promise<ColorCode[]> => {
-    const response = await api.get<{ success: boolean; data: ColorCode[] }>('/patients/color-codes');
-    return (response as any).data || response;
+    const response = await api.get<{ success: boolean; data: ColorCode[] }>('/patients/color-codes') as any;
+    return response.data || response;
   },
 
   // Get patient statistics
   getStats: async (): Promise<PatientStats> => {
-    const response = await api.get<{ success: boolean; data: PatientStats }>('/patients/stats');
-    return (response as any).data || response;
+    const response = await api.get<{ success: boolean; data: PatientStats }>('/patients/stats') as any;
+    return response.data || response;
   },
 };
 

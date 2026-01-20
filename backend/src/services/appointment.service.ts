@@ -43,7 +43,7 @@ export const createAppointment = async (
 
 export const updateAppointment = async (
   id: string,
-  appointmentData: Partial<Omit<appointmentModel.Appointment, 'id' | 'created_at' | 'updated_at' | 'patient_name' | 'doctor_name' | 'patient_phone'>>,
+  appointmentData: Partial<Omit<appointmentModel.Appointment, 'id' | 'created_at' | 'updated_at' | 'patient_name' | 'doctor_name' | 'patient_phone'>> & { patient_color_code?: string },
   sendNotification = false
 ) => {
   const existingAppointment = await appointmentModel.findAppointmentById(id);
@@ -51,20 +51,37 @@ export const updateAppointment = async (
     throw new ApiError(404, 'Appointment not found');
   }
 
+  // If patient_color_code is provided, update the patient's color code
+  if (appointmentData.patient_color_code !== undefined && existingAppointment.patient_id) {
+    try {
+      const { query } = await import('../config/database');
+      await query(
+        'UPDATE patients SET color_code = $1 WHERE id = $2',
+        [appointmentData.patient_color_code, existingAppointment.patient_id]
+      );
+    } catch (error) {
+      console.error('Error updating patient color code:', error);
+      // Continue with appointment update even if color update fails
+    }
+  }
+
+  // Remove patient_color_code from appointmentData as it's not part of appointments table
+  const { patient_color_code, ...appointmentUpdateData } = appointmentData as any;
+
   // Track if rescheduled
-  const isRescheduled = appointmentData.start_at && 
-    new Date(appointmentData.start_at).getTime() !== new Date(existingAppointment.start_at).getTime();
+  const isRescheduled = appointmentUpdateData.start_at && 
+    new Date(appointmentUpdateData.start_at).getTime() !== new Date(existingAppointment.start_at).getTime();
   const oldStartAt = existingAppointment.start_at;
 
   // Track if status changed to confirmed
-  const isConfirmed = appointmentData.status === 'confirmed' && existingAppointment.status !== 'confirmed';
+  const isConfirmed = appointmentUpdateData.status === 'confirmed' && existingAppointment.status !== 'confirmed';
   
   // Track if status changed to cancelled
-  const isCancelled = appointmentData.status === 'cancelled' && existingAppointment.status !== 'cancelled';
+  const isCancelled = appointmentUpdateData.status === 'cancelled' && existingAppointment.status !== 'cancelled';
 
   // If updating start time, validate it's not in the past
-  if (appointmentData.start_at) {
-    const startTime = new Date(appointmentData.start_at);
+  if (appointmentUpdateData.start_at) {
+    const startTime = new Date(appointmentUpdateData.start_at);
     const now = new Date();
 
     if (startTime < now) {
@@ -72,7 +89,7 @@ export const updateAppointment = async (
     }
   }
 
-  const updatedAppointment = await appointmentModel.updateAppointment(id, appointmentData);
+  const updatedAppointment = await appointmentModel.updateAppointment(id, appointmentUpdateData);
   
   // Send WhatsApp notifications based on what changed
   if (sendNotification && updatedAppointment) {

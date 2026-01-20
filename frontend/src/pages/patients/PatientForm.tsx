@@ -55,10 +55,16 @@ const PatientForm = () => {
     try {
       setLoadingData(true);
       const patient = await patientService.getById(patientId);
+      console.log('Loaded patient data:', patient);
+      
+      if (!patient || !patient.first_name) {
+        throw new Error('Invalid patient data received');
+      }
+      
       setFormData({
         first_name: patient.first_name,
         last_name: patient.last_name,
-        date_of_birth: patient.date_of_birth.split('T')[0],
+        date_of_birth: patient.date_of_birth ? patient.date_of_birth.split('T')[0] : '',
         gender: patient.gender,
         phone: patient.phone,
         email: patient.email || '',
@@ -75,7 +81,8 @@ const PatientForm = () => {
         is_pregnant: patient.is_pregnant ?? true,
       });
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load patient');
+      console.error('Error loading patient:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to load patient');
       navigate('/patients');
     } finally {
       setLoadingData(false);

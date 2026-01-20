@@ -17,7 +17,7 @@ const runMigration = async () => {
         ) THEN
           ALTER TABLE appointments
           ADD CONSTRAINT check_reservation_type
-          CHECK (reservation_type IN ('Clinic', 'phone', 'Doctor', 'website'));
+          CHECK (reservation_type IN ('Clinic', 'samar_phone', 'Habiba_phone', 'Doctor', 'website'));
         END IF;
       END $$;
 
@@ -31,7 +31,7 @@ const runMigration = async () => {
     
     console.log('✅ Migration completed successfully!');
     console.log('   - Added reservation_type column with default "Clinic"');
-    console.log('   - Added constraint for valid values: Clinic, phone, Doctor, website');
+    console.log('   - Added constraint for valid values: Clinic, samar_phone, Habiba_phone, Doctor, website');
     console.log('   - Updated existing records');
     process.exit(0);
   } catch (error) {

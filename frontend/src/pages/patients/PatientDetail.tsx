@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import patientService from '../../services/patient.service';
-import { FiEdit2, FiTrash2, FiArrowLeft, FiPhone, FiMail, FiMapPin, FiUser, FiHeart } from 'react-icons/fi';
+import PaymentModal from '../../components/PaymentModal';
+import { FiEdit2, FiTrash2, FiArrowLeft, FiPhone, FiMail, FiMapPin, FiUser, FiHeart, FiDollarSign } from 'react-icons/fi';
 
 const PatientDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -298,8 +300,18 @@ const PatientDetail = () => {
               <button className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
                 Schedule Appointment
               </button>
-              <button className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+              <button
+                onClick={() => navigate(`/visits/patient/${patient.id}`)}
+                className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+              >
                 View Visits
+              </button>
+              <button
+                onClick={() => setIsPaymentModalOpen(true)}
+                className="w-full text-left px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 justify-center"
+              >
+                <FiDollarSign />
+                Add Payment
               </button>
               <button className="w-full text-left px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
                 Add Clinical Note
@@ -308,6 +320,19 @@ const PatientDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {patient && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          patientId={patient.id}
+          patientName={`${patient.first_name} ${patient.last_name}`}
+          onPaymentCreated={() => {
+            toast.success('Payment recorded successfully!');
+          }}
+        />
+      )}
     </div>
   );
 };

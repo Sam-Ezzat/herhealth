@@ -66,9 +66,15 @@ const VisitForm = () => {
   const loadPatients = async () => {
     try {
       const result = await patientService.getAll();
-      setPatients(result.patients || []);
+      if (result && 'patients' in result) {
+        setPatients(result.patients || []);
+      } else {
+        setPatients([]);
+      }
     } catch (error: any) {
-      toast.error('Failed to load patients');
+      console.error('Error loading patients:', error);
+      toast.error(error.response?.data?.error || error.message || 'Failed to load patients');
+      setPatients([]);
     }
   };
 
