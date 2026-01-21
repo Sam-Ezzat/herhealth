@@ -1,6 +1,6 @@
 {
   "name": "obgyn-clinic-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OBGYN Clinic Management System - Backend API",
   "main": "dist/server.js",
   "scripts": {
