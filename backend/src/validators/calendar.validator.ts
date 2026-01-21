@@ -105,16 +105,16 @@ export const updateCalendarSchema = Joi.object({
 
 export const createWorkingHoursSchema = Joi.object({
   day_of_week: Joi.number().integer().min(0).max(6).required(),
-  start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
-  end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).required(),
+  start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).required(),
+  end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).required(),
   is_active: Joi.boolean().default(true),
   is_closed: Joi.boolean().default(false)
 });
 
 export const updateWorkingHoursSchema = Joi.object({
   day_of_week: Joi.number().integer().min(0).max(6).optional(),
-  start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
-  end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+  start_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).optional(),
+  end_time: Joi.string().pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).optional(),
   is_active: Joi.boolean().optional(),
   is_closed: Joi.boolean().optional()
 });
