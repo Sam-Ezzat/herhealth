@@ -473,43 +473,57 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
   const [startHour, startMinute] = dayHours.start_time.split(':').map(Number);
   const [endHour, endMinute] = dayHours.end_time.split(':').map(Number);
 
-  let currentTime = new Date(targetDate);
-  currentTime.setHours(startHour, startMinute, 0, 0);
-
-  const endTime = new Date(targetDate);
-  endTime.setHours(endHour, endMinute, 0, 0);
+  // Work with time in minutes from start of day to avoid timezone issues
+  let currentMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
 
   // Get current time to check for past slots
   const now = new Date();
   const isToday = targetDate.toDateString() === now.toDateString();
 
-  while (currentTime < endTime) {
-    const slotStart = new Date(currentTime);
-    const slotEnd = new Date(currentTime.getTime() + slotConfig.slot_duration * 60000);
+  while (currentMinutes < endMinutes) {
+    const slotStartMinutes = currentMinutes;
+    const slotEndMinutes = currentMinutes + slotConfig.slot_duration;
+
+    const slotStartHour = Math.floor(slotStartMinutes / 60);
+    const slotStartMin = slotStartMinutes % 60;
+    const slotEndHour = Math.floor(slotEndMinutes / 60);
+    const slotEndMin = slotEndMinutes % 60;
+
+    // Format as YYYY-MM-DD HH:MM:SS (local time, no timezone conversion)
+    const dateStr = date; // YYYY-MM-DD format
+    const startTimeStr = `${dateStr} ${String(slotStartHour).padStart(2, '0')}:${String(slotStartMin).padStart(2, '0')}:00`;
+    const endTimeStr = `${dateStr} ${String(slotEndHour).padStart(2, '0')}:${String(slotEndMin).padStart(2, '0')}:00`;
 
     // Check if slot is in the past (only for today)
-    const isPast = isToday && slotEnd <= now;
+    let isPast = false;
+    if (isToday) {
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      isPast = slotEndMinutes <= nowMinutes;
+    }
 
     // Check if slot conflicts with existing appointments
     const bookedCount = existingAppointments.filter((apt: any) => {
       const aptStart = new Date(apt.start_at);
       const aptEnd = new Date(apt.end_at);
-      return (slotStart < aptEnd && slotEnd > aptStart);
+      const aptStartMinutes = aptStart.getHours() * 60 + aptStart.getMinutes();
+      const aptEndMinutes = aptEnd.getHours() * 60 + aptEnd.getMinutes();
+      return (slotStartMinutes < aptEndMinutes && slotEndMinutes > aptStartMinutes);
     }).length;
 
     // Slot is available if: not in the past AND not fully booked
     const available = !isPast && bookedCount < slotConfig.max_appointments_per_slot;
 
     slots.push({
-      start_time: slotStart.toISOString(),
-      end_time: slotEnd.toISOString(),
+      start_time: startTimeStr,
+      end_time: endTimeStr,
       available,
       booked_count: bookedCount,
       max_appointments: slotConfig.max_appointments_per_slot
     });
 
     // Move to next slot (slot_duration + break_duration)
-    currentTime = new Date(slotEnd.getTime() + slotConfig.break_duration * 60000);
+    currentMinutes = slotEndMinutes + slotConfig.break_duration;
   }
 
   return {

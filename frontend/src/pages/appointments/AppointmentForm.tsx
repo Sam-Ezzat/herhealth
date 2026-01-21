@@ -178,9 +178,10 @@ const AppointmentForm = () => {
       
       if (slotsData.slots && Array.isArray(slotsData.slots)) {
         slotsData.slots.forEach((slot: any) => {
-          const startTime = new Date(slot.start_time);
-          const hours = startTime.getHours().toString().padStart(2, '0');
-          const minutes = startTime.getMinutes().toString().padStart(2, '0');
+          // Backend now returns 'YYYY-MM-DD HH:MM:SS' format without timezone
+          // Extract just the time part
+          const startTime = slot.start_time.split(' ')[1]; // Get 'HH:MM:SS'
+          const [hours, minutes] = startTime.split(':');
           const time = `${hours}:${minutes}`;
           
           slots.push({
