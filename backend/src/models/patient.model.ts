@@ -272,7 +272,7 @@ export const findPatientByPhone = async (
 
 // Get all color codes
 export const getAllColorCodes = async () => {
-  const sql = `SELECT * FROM color_code ORDER BY color_name`;
+  const sql = `SELECT * FROM color_code WHERE is_active = true ORDER BY color_name`;
   const result = await query(sql);
   return result.rows;
 };
