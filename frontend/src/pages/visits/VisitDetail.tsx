@@ -243,7 +243,7 @@ const VisitDetail = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <span className="text-sm text-gray-600">Amount:</span>
-                    <p className="font-semibold text-gray-900">EGP {payment.amount.toFixed(2)}</p>
+                    <p className="font-semibold text-gray-900">EGP {Number(payment.amount).toFixed(2)}</p>
                   </div>
                   <div>
                     <span className="text-sm text-gray-600">Method:</span>
