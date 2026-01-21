@@ -24,9 +24,7 @@ const PatientForm = () => {
     emergency_contact_name: '',
     emergency_contact_phone: '',
     blood_type: '',
-    allergies: '',
-    chronic_conditions: '',
-    current_medications: '',
+    notes: '',
     insurance_provider: '',
     insurance_number: '',
     color_code_id: '',
@@ -72,9 +70,7 @@ const PatientForm = () => {
         emergency_contact_name: patient.emergency_contact_name || '',
         emergency_contact_phone: patient.emergency_contact_phone || '',
         blood_type: patient.blood_type || '',
-        allergies: patient.allergies || '',
-        chronic_conditions: patient.chronic_conditions || '',
-        current_medications: patient.current_medications || '',
+        notes: patient.notes || '',
         insurance_provider: patient.insurance_provider || '',
         insurance_number: patient.insurance_number || '',
         color_code_id: patient.color_code_id || '',
@@ -132,9 +128,7 @@ const PatientForm = () => {
         emergency_contact_name: formData.emergency_contact_name || undefined,
         emergency_contact_phone: formData.emergency_contact_phone || undefined,
         blood_type: formData.blood_type || undefined,
-        allergies: formData.allergies || undefined,
-        chronic_conditions: formData.chronic_conditions || undefined,
-        current_medications: formData.current_medications || undefined,
+        notes: formData.notes || undefined,
         insurance_provider: formData.insurance_provider || undefined,
         insurance_number: formData.insurance_number || undefined,
         color_code_id: formData.color_code_id || undefined,
@@ -381,45 +375,19 @@ const PatientForm = () => {
           </div>
         </div>
 
-        {/* Medical Information */}
+        {/* General Notes */}
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Medical Information</h2>
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
-              <textarea
-                name="allergies"
-                value={formData.allergies}
-                onChange={handleChange}
-                rows={2}
-                placeholder="List any known allergies..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Chronic Conditions</label>
-              <textarea
-                name="chronic_conditions"
-                value={formData.chronic_conditions}
-                onChange={handleChange}
-                rows={3}
-                placeholder="List any chronic conditions..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Current Medications</label>
-              <textarea
-                name="current_medications"
-                value={formData.current_medications}
-                onChange={handleChange}
-                rows={3}
-                placeholder="List current medications..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">General Notes</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Notes about patient</label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              rows={6}
+              placeholder="Add any notes about the patient..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
         </div>
 
