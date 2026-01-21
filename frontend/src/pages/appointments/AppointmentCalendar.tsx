@@ -116,15 +116,13 @@ const AppointmentCalendar = () => {
 
       const result = await appointmentService.getAll(filters);
       
-      // Filter out archived appointments (before today)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const activeAppointments = (result || []).filter(apt => 
-        new Date(apt.start_at) >= today
+      // For calendar view, show all appointments (not just future ones)
+      // Filter only cancelled and no-show appointments
+      const visibleAppointments = (result || []).filter(apt => 
+        apt.status !== 'cancelled' && apt.status !== 'no-show'
       );
       
-      setAppointments(activeAppointments);
+      setAppointments(visibleAppointments);
     } catch (error: any) {
       console.error('Error loading appointments:', error);
       toast.error('Failed to load appointments');
@@ -218,16 +216,51 @@ const AppointmentCalendar = () => {
   };
 
   const events: CalendarEvent[] = useMemo(() => {
-    return appointments.map((appointment) => {
-      const duration = moment(appointment.end_at).diff(moment(appointment.start_at), 'minutes');
+    const mappedEvents = appointments.map((appointment) => {
+      // Parse datetime without timezone conversion
+      // Backend returns ISO format: 'YYYY-MM-DDTHH:MM:SS.000Z'
+      const parseLocalDate = (dateString: string) => {
+        try {
+          if (!dateString) {
+            console.error('Empty date string');
+            return new Date();
+          }
+          
+          // Remove timezone suffix and milliseconds
+          const cleaned = dateString.replace(/\.\d{3}Z?$/, '').replace(' ', 'T');
+          const [datePart, timePart] = cleaned.split('T');
+          
+          if (!datePart || !timePart) {
+            console.error('Invalid date format:', dateString);
+            return new Date();
+          }
+          
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hours, minutes, seconds = 0] = timePart.split(':').map(Number);
+          
+          // Create date in local timezone (treat the time values as local, not UTC)
+          const localDate = new Date(year, month - 1, day, hours, minutes, seconds);
+          return localDate;
+        } catch (error) {
+          console.error('Error parsing date:', dateString, error);
+          return new Date();
+        }
+      };
+      
+      const startDate = parseLocalDate(appointment.start_at);
+      const endDate = parseLocalDate(appointment.end_at);
+      const duration = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+      
       return {
         id: appointment.id,
         title: `${appointment.patient_name}\n${appointment.type} (${duration}min)`,
-        start: new Date(appointment.start_at),
-        end: new Date(appointment.end_at),
+        start: startDate,
+        end: endDate,
         resource: appointment,
       };
     });
+    
+    return mappedEvents;
   }, [appointments]);
 
   const handleSelectSlot = (slotInfo: any) => {
@@ -250,10 +283,17 @@ const AppointmentCalendar = () => {
   const handleSelectEvent = async (event: CalendarEvent) => {
     const appointment = event.resource;
     setSelectedAppointment(appointment);
+    
+    // Parse the UTC string without timezone conversion
+    const parseToLocalFormat = (dateString: string) => {
+      const cleaned = dateString.replace(/\.\d{3}Z?$/, '').replace(' ', 'T');
+      return cleaned.substring(0, 16); // Return 'YYYY-MM-DDTHH:mm' format
+    };
+    
     setFormData({
       patient_id: appointment.patient_id,
       doctor_id: appointment.doctor_id,
-      start_at: moment(appointment.start_at).format('YYYY-MM-DDTHH:mm'),
+      start_at: parseToLocalFormat(appointment.start_at),
       duration: moment(appointment.end_at).diff(moment(appointment.start_at), 'minutes'),
       type: appointment.type,
       status: appointment.status,
