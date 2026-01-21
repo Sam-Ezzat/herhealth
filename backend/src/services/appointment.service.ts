@@ -79,12 +79,15 @@ export const updateAppointment = async (
   // Track if status changed to cancelled
   const isCancelled = appointmentUpdateData.status === 'cancelled' && existingAppointment.status !== 'cancelled';
 
-  // If updating start time, validate it's not in the past
+  // If updating start time (not just status), validate it's not in the past
   if (appointmentUpdateData.start_at) {
     const startTime = new Date(appointmentUpdateData.start_at);
     const now = new Date();
 
-    if (startTime < now) {
+    // Only block past time if we're actually changing the start time
+    const isChangingStartTime = new Date(appointmentUpdateData.start_at).getTime() !== new Date(existingAppointment.start_at).getTime();
+    
+    if (isChangingStartTime && startTime < now) {
       throw new ApiError(400, 'Appointment start time cannot be in the past');
     }
   }
