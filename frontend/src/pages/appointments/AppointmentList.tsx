@@ -118,10 +118,15 @@ const AppointmentList = () => {
   };
 
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // Parse datetime string directly without timezone conversion
+    // Expected format: 'YYYY-MM-DDTHH:MM:SS' or 'YYYY-MM-DD HH:MM:SS'
+    const timePart = dateString.includes('T') ? dateString.split('T')[1] : dateString.split(' ')[1];
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Format to 12-hour time
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
   };
 
   const calculateDuration = (start: string, end: string) => {

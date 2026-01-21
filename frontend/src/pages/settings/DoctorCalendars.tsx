@@ -343,11 +343,14 @@ const DoctorCalendars = () => {
   };
 
   const formatTime = (time: string) => {
-    return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    // Parse time string directly without timezone conversion
+    // Expected format: 'HH:MM:SS' or 'HH:MM'
+    const [hours, minutes] = time.split(':').map(Number);
+    
+    // Format to 12-hour time
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`;
   };
 
   if (loading) {
