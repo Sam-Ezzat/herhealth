@@ -48,6 +48,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
     phone: '',
     color_code_id: '',
     doctor_id: '',
+    calendar_id: '',
     appointment_date: '',
     appointment_time: '',
     duration: '30',
@@ -64,6 +65,8 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchingPatients, setSearchingPatients] = useState(false);
   const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
+  const [doctorCalendars, setDoctorCalendars] = useState<any[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -74,11 +77,16 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
 
   useEffect(() => {
     if (formData.doctor_id && formData.appointment_date) {
+      // If multiple calendars exist, wait for calendar selection
+      if (doctorCalendars.length > 1 && !formData.calendar_id) {
+        setTimeSlots([]);
+        return;
+      }
       loadAvailableTimeSlots();
     } else {
       setTimeSlots([]);
     }
-  }, [formData.doctor_id, formData.appointment_date]);
+  }, [formData.doctor_id, formData.calendar_id, formData.appointment_date, doctorCalendars.length]);
 
   useEffect(() => {
     // Debounced patient search
@@ -113,6 +121,28 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
     } catch (error) {
       console.error('Error loading color codes:', error);
       toast.error('Failed to load color codes');
+    }
+  };
+
+  const loadDoctorCalendars = async (doctorId: string) => {
+    setLoadingCalendars(true);
+    try {
+      const response = await api.get<any>(`/calendars/doctor/${doctorId}/all`);
+      const calendars = response.data?.data || response.data || [];
+      setDoctorCalendars(Array.isArray(calendars) ? calendars : []);
+      
+      // Auto-select calendar if there's only one
+      if (calendars.length === 1) {
+        setFormData(prev => ({ ...prev, calendar_id: calendars[0].id }));
+      } else if (calendars.length === 0) {
+        // No calendars, clear selection
+        setFormData(prev => ({ ...prev, calendar_id: '' }));
+      }
+    } catch (error) {
+      console.error('Error loading doctor calendars:', error);
+      setDoctorCalendars([]);
+    } finally {
+      setLoadingCalendars(false);
     }
   };
 
@@ -173,8 +203,14 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
   const loadAvailableTimeSlots = async () => {
     setLoadingSlots(true);
     try {
+      // Build URL with calendarId if available
+      let calendarUrl = `/calendars/doctor/${formData.doctor_id}`;
+      if (formData.calendar_id) {
+        calendarUrl = `/calendars/${formData.calendar_id}`;
+      }
+      
       // Get doctor's calendar with working hours and time slots
-      const calendarResponse: any = await api.get(`/calendars/doctor/${formData.doctor_id}`);
+      const calendarResponse: any = await api.get(calendarUrl);
       const calendar = calendarResponse.data?.data || calendarResponse.data || calendarResponse;
       
       console.log('Calendar data received:', calendar);
@@ -357,6 +393,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
       const appointmentData = {
         patient_id: patientId,
         doctor_id: formData.doctor_id,
+        calendar_id: formData.calendar_id || undefined,
         start_at: formatDateTime(startAt),
         end_at: formatDateTime(endAt),
         type: 'Walk-in Appointment',
@@ -386,6 +423,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
       phone: '',
       color_code_id: '',
       doctor_id: '',
+      calendar_id: '',
       appointment_date: '',
       appointment_time: '',
       duration: '30',
@@ -397,6 +435,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
     setSelectedPatient(null);
     setShowPatientSuggestions(false);
     setSearchingPatients(false);
+    setDoctorCalendars([]);
     onClose();
   };
 
@@ -591,7 +630,16 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
                 <select
                   name="doctor_id"
                   value={formData.doctor_id}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    const newDoctorId = e.target.value;
+                    setFormData(prev => ({ ...prev, doctor_id: newDoctorId, calendar_id: '' }));
+                    setTimeSlots([]);
+                    if (newDoctorId) {
+                      loadDoctorCalendars(newDoctorId);
+                    } else {
+                      setDoctorCalendars([]);
+                    }
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
@@ -607,6 +655,53 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
                   )}
                 </select>
               </div>
+
+              {/* Calendar Selection - Show only if doctor has multiple calendars */}
+              {formData.doctor_id && doctorCalendars.length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Calendar {doctorCalendars.length > 1 && <span className="text-red-500">*</span>}
+                  </label>
+                  {loadingCalendars ? (
+                    <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                      Loading calendars...
+                    </div>
+                  ) : (
+                    <select
+                      name="calendar_id"
+                      value={formData.calendar_id}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, calendar_id: e.target.value }));
+                        setTimeSlots([]);
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={doctorCalendars.length > 1}
+                    >
+                      {doctorCalendars.length > 1 && <option value="">Select Calendar</option>}
+                      {doctorCalendars.map((calendar) => (
+                        <option key={calendar.id} value={calendar.id}>
+                          {calendar.name}
+                          {calendar.color_name && ` (${calendar.color_name})`}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {formData.calendar_id && doctorCalendars.length > 0 && (() => {
+                    const selectedCalendar = doctorCalendars.find(c => c.id === formData.calendar_id);
+                    return selectedCalendar?.color_code ? (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div
+                          className="w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm"
+                          style={{ backgroundColor: selectedCalendar.color_code }}
+                        />
+                        <span className="text-sm text-gray-600 font-medium">
+                          Calendar Color: {selectedCalendar.color_name || selectedCalendar.color_code}
+                        </span>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

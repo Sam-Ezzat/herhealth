@@ -47,9 +47,12 @@ const AppointmentCalendar = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [colorCodes, setColorCodes] = useState<any[]>([]);
   const [selectedPatientColorCode, setSelectedPatientColorCode] = useState<string>('');
+  const [doctorCalendars, setDoctorCalendars] = useState<any[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
   const [formData, setFormData] = useState({
     patient_id: '',
     doctor_id: '',
+    calendar_id: '',
     start_at: '',
     duration: 30,
     type: '',
@@ -68,11 +71,16 @@ const AppointmentCalendar = () => {
   useEffect(() => {
     if (modalMode === 'create' && formData.doctor_id && formData.start_at) {
       const appointmentDate = formData.start_at.split('T')[0];
+      // If multiple calendars exist, wait for calendar selection
+      if (doctorCalendars.length > 1 && !formData.calendar_id) {
+        setTimeSlots([]);
+        return;
+      }
       loadAvailableTimeSlots(appointmentDate);
     } else {
       setTimeSlots([]);
     }
-  }, [formData.doctor_id, formData.start_at?.split('T')[0], modalMode]);
+  }, [formData.doctor_id, formData.calendar_id, formData.start_at?.split('T')[0], modalMode, doctorCalendars.length]);
 
   const loadDoctors = async () => {
     try {
@@ -108,6 +116,28 @@ const AppointmentCalendar = () => {
     }
   };
 
+  const loadDoctorCalendars = async (doctorId: string) => {
+    setLoadingCalendars(true);
+    try {
+      const response = await api.get<any>(`/calendars/doctor/${doctorId}/all`);
+      const calendars = response.data?.data || response.data || [];
+      setDoctorCalendars(Array.isArray(calendars) ? calendars : []);
+      
+      // Auto-select calendar if there's only one
+      if (calendars.length === 1) {
+        setFormData(prev => ({ ...prev, calendar_id: calendars[0].id }));
+      } else if (calendars.length === 0) {
+        // No calendars, clear selection
+        setFormData(prev => ({ ...prev, calendar_id: '' }));
+      }
+    } catch (error) {
+      console.error('Error loading doctor calendars:', error);
+      setDoctorCalendars([]);
+    } finally {
+      setLoadingCalendars(false);
+    }
+  };
+
   const loadAppointments = async () => {
     try {
       setLoading(true);
@@ -134,7 +164,13 @@ const AppointmentCalendar = () => {
   const loadAvailableTimeSlots = async (appointmentDate: string) => {
     setLoadingSlots(true);
     try {
-      const calendarResponse: any = await api.get(`/calendars/doctor/${formData.doctor_id}`);
+      // Build URL with calendarId if available
+      let calendarUrl = `/calendars/doctor/${formData.doctor_id}`;
+      if (formData.calendar_id) {
+        calendarUrl = `/calendars/${formData.calendar_id}`;
+      }
+      
+      const calendarResponse: any = await api.get(calendarUrl);
       const calendar = calendarResponse.data?.data || calendarResponse.data || calendarResponse;
       
       const selectedDate = new Date(appointmentDate);
@@ -268,6 +304,7 @@ const AppointmentCalendar = () => {
     setFormData({
       patient_id: '',
       doctor_id: selectedDoctor || '',
+      calendar_id: '',
       start_at: startTime,
       duration: 30,
       type: '',
@@ -277,6 +314,10 @@ const AppointmentCalendar = () => {
     });
     setModalMode('create');
     setSelectedAppointment(null);
+    setDoctorCalendars([]);
+    if (selectedDoctor) {
+      loadDoctorCalendars(selectedDoctor);
+    }
     setShowModal(true);
   };
 
@@ -293,13 +334,19 @@ const AppointmentCalendar = () => {
     setFormData({
       patient_id: appointment.patient_id,
       doctor_id: appointment.doctor_id,
+      calendar_id: appointment.calendar_id || '',
       start_at: parseToLocalFormat(appointment.start_at),
       duration: moment(appointment.end_at).diff(moment(appointment.start_at), 'minutes'),
       type: appointment.type,
-      status: appointment.status,
+      status: appointment.status as 'scheduled',
       reservation_type: (appointment as any).reservation_type || 'Clinic',
       notes: appointment.notes || '',
     });
+    
+    // Load calendars for the doctor
+    if (appointment.doctor_id) {
+      loadDoctorCalendars(appointment.doctor_id);
+    }
     
     // Load patient details to get color code
     try {
@@ -351,6 +398,7 @@ const AppointmentCalendar = () => {
       const appointmentData = {
         patient_id: formData.patient_id,
         doctor_id: formData.doctor_id,
+        calendar_id: formData.calendar_id || undefined,
         start_at: startDate.toISOString(),
         end_at: endDate.toISOString(),
         type: formData.type,
@@ -469,7 +517,7 @@ const AppointmentCalendar = () => {
               <option value="">All Doctors</option>
               {doctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  Dr. {doctor.first_name} {doctor.last_name} - {doctor.specialization}
+                  Dr. {doctor.first_name} {doctor.last_name} - {(doctor as any).specialty || (doctor as any).specialization || ''}
                 </option>
               ))}
             </select>
@@ -640,10 +688,13 @@ const AppointmentCalendar = () => {
                     <select
                       value={formData.doctor_id}
                       onChange={async (e) => {
-                        setFormData({ ...formData, doctor_id: e.target.value });
-                        if (e.target.value) {
+                        const newDoctorId = e.target.value;
+                        setFormData(prev => ({ ...prev, doctor_id: newDoctorId, calendar_id: '' }));
+                        setTimeSlots([]);
+                        if (newDoctorId) {
+                          loadDoctorCalendars(newDoctorId);
                           try {
-                            const calendarResponse: any = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'}/calendars/doctor/${e.target.value}`, {
+                            const calendarResponse: any = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1'}/calendars/doctor/${newDoctorId}`, {
                               headers: {
                                 'Authorization': `Bearer ${localStorage.getItem('token')}`
                               }
@@ -656,6 +707,8 @@ const AppointmentCalendar = () => {
                           } catch (error) {
                             console.error('Error loading doctor calendar:', error);
                           }
+                        } else {
+                          setDoctorCalendars([]);
                         }
                       }}
                       required
@@ -664,11 +717,57 @@ const AppointmentCalendar = () => {
                       <option value="">Select Doctor</option>
                       {doctors?.map((doctor) => (
                         <option key={doctor.id} value={doctor.id}>
-                          Dr. {doctor.first_name} {doctor.last_name} - {doctor.specialization}
+                          Dr. {doctor.first_name} {doctor.last_name} - {(doctor as any).specialty || (doctor as any).specialization || ''}
                         </option>
                       ))}
                     </select>
                   </div>
+
+                  {/* Calendar Selection - Show only if doctor has multiple calendars */}
+                  {formData.doctor_id && doctorCalendars.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Calendar {doctorCalendars.length > 1 && <span className="text-red-500">*</span>}
+                      </label>
+                      {loadingCalendars ? (
+                        <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                          Loading calendars...
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.calendar_id}
+                          onChange={(e) => {
+                            setFormData(prev => ({ ...prev, calendar_id: e.target.value }));
+                            setTimeSlots([]);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required={doctorCalendars.length > 1}
+                        >
+                          {doctorCalendars.length > 1 && <option value="">Select Calendar</option>}
+                          {doctorCalendars.map((calendar) => (
+                            <option key={calendar.id} value={calendar.id}>
+                              {calendar.name}
+                              {calendar.color_name && ` (${calendar.color_name})`}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {formData.calendar_id && doctorCalendars.length > 0 && (() => {
+                        const selectedCalendar = doctorCalendars.find(c => c.id === formData.calendar_id);
+                        return selectedCalendar?.color_code ? (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div
+                              className="w-6 h-6 rounded-full border-2 border-gray-300 shadow-sm"
+                              style={{ backgroundColor: selectedCalendar.color_code }}
+                            />
+                            <span className="text-xs text-gray-600 font-medium">
+                              Calendar Color: {selectedCalendar.color_name || selectedCalendar.color_code}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
 
                   {/* Type */}
                   <div>
