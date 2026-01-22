@@ -26,6 +26,24 @@ export const createAppointment = async (
     throw new ApiError(400, 'Appointment start time cannot be in the past');
   }
 
+  // Check if the time slot is blocked by a calendar exception
+  if (appointmentData.calendar_id) {
+    const { query } = await import('../config/database');
+    const blocksResult = await query(
+      `SELECT * FROM calendar_exceptions 
+       WHERE calendar_id = $1 
+       AND start_datetime < $2 
+       AND end_datetime > $3
+       LIMIT 1`,
+      [appointmentData.calendar_id, appointmentData.end_at, appointmentData.start_at]
+    );
+
+    if (blocksResult.rows.length > 0) {
+      const block = blocksResult.rows[0];
+      throw new ApiError(400, `Cannot schedule appointment: ${block.reason || block.exception_type || 'Time slot is blocked'}`);
+    }
+  }
+
   const appointment = await appointmentModel.createAppointment(appointmentData);
   
   // Send WhatsApp notification
@@ -89,6 +107,27 @@ export const updateAppointment = async (
     
     if (isChangingStartTime && startTime < now) {
       throw new ApiError(400, 'Appointment start time cannot be in the past');
+    }
+
+    // Check if the new time slot is blocked by a calendar exception (only if time is actually changing)
+    if (isChangingStartTime && (appointmentUpdateData.calendar_id || existingAppointment.calendar_id)) {
+      const { query } = await import('../config/database');
+      const calendarId = appointmentUpdateData.calendar_id || existingAppointment.calendar_id;
+      const endTime = appointmentUpdateData.end_at || existingAppointment.end_at;
+      
+      const blocksResult = await query(
+        `SELECT * FROM calendar_exceptions 
+         WHERE calendar_id = $1 
+         AND start_datetime < $2 
+         AND end_datetime > $3
+         LIMIT 1`,
+        [calendarId, endTime, appointmentUpdateData.start_at]
+      );
+
+      if (blocksResult.rows.length > 0) {
+        const block = blocksResult.rows[0];
+        throw new ApiError(400, `Cannot reschedule appointment: ${block.reason || block.exception_type || 'Time slot is blocked'}`);
+      }
     }
   }
 

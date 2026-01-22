@@ -21,17 +21,30 @@ interface CalendarEvent {
   title: string;
   start: Date;
   end: Date;
-  resource: Appointment;
+  resource: Appointment | CalendarBlock;
+  isBlock?: boolean;
+}
+
+interface CalendarBlock {
+  id: string;
+  calendar_id: string;
+  exception_type: string;
+  start_datetime: string;
+  end_datetime: string;
+  reason?: string;
 }
 
 interface TimeSlot {
   time: string;
   available: boolean;
+  is_blocked?: boolean;
+  block_reason?: string;
 }
 
 const AppointmentCalendar = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,27 +73,6 @@ const AppointmentCalendar = () => {
     reservation_type: 'Clinic',
     notes: '',
   });
-
-  useEffect(() => {
-    loadDoctors();
-    loadPatients();
-    loadColorCodes();
-    loadAppointments();
-  }, [selectedDoctor]);
-
-  useEffect(() => {
-    if (modalMode === 'create' && formData.doctor_id && formData.start_at) {
-      const appointmentDate = formData.start_at.split('T')[0];
-      // If multiple calendars exist, wait for calendar selection
-      if (doctorCalendars.length > 1 && !formData.calendar_id) {
-        setTimeSlots([]);
-        return;
-      }
-      loadAvailableTimeSlots(appointmentDate);
-    } else {
-      setTimeSlots([]);
-    }
-  }, [formData.doctor_id, formData.calendar_id, formData.start_at?.split('T')[0], modalMode, doctorCalendars.length]);
 
   const loadDoctors = async () => {
     try {
@@ -161,88 +153,74 @@ const AppointmentCalendar = () => {
     }
   };
 
+  const loadCalendarBlocks = async () => {
+    try {
+      // Get all calendars
+      const calendarsResponse = await api.get<any>('/calendars');
+      const calendars = calendarsResponse.data?.data || calendarsResponse.data || [];
+      
+      const blocks: CalendarBlock[] = [];
+      
+      for (const calendar of calendars) {
+        // Filter by doctor if selected
+        if (selectedDoctor && calendar.doctor_id !== selectedDoctor) {
+          continue;
+        }
+        
+        try {
+          const response = await api.get<any>(`/calendars/${calendar.id}/exceptions`);
+          const calendarBlocks = response.data?.data || response.data || [];
+          blocks.push(...calendarBlocks);
+        } catch (error) {
+          console.error(`Error loading blocks for calendar ${calendar.id}:`, error);
+        }
+      }
+      
+      setCalendarBlocks(blocks);
+    } catch (error) {
+      console.error('Error loading calendar blocks:', error);
+    }
+  };
+
   const loadAvailableTimeSlots = async (appointmentDate: string) => {
     setLoadingSlots(true);
     try {
-      // Build URL with calendarId if available
-      let calendarUrl = `/calendars/doctor/${formData.doctor_id}`;
+      // Build query string manually to avoid axios params nesting issues
+      let queryString = `doctorId=${formData.doctor_id}&date=${appointmentDate}`;
+      
       if (formData.calendar_id) {
-        calendarUrl = `/calendars/${formData.calendar_id}`;
+        queryString += `&calendarId=${formData.calendar_id}`;
       }
       
-      const calendarResponse: any = await api.get(calendarUrl);
-      const calendar = calendarResponse.data?.data || calendarResponse.data || calendarResponse;
+      const response = await api.get(`/calendars/available-slots?${queryString}`);
+      const slotsData = response.data?.data || response.data;
       
-      const selectedDate = new Date(appointmentDate);
-      const dayOfWeek = selectedDate.getDay();
-      
-      const startOfDay = `${appointmentDate}T00:00:00`;
-      const endOfDay = `${appointmentDate}T23:59:59`;
-      
-      const appointmentsResponse: any = await api.get(`/appointments?doctor_id=${formData.doctor_id}&date_from=${startOfDay}&date_to=${endOfDay}`);
-      const appointmentsData = appointmentsResponse.data?.data || appointmentsResponse.data || appointmentsResponse;
-      const existingAppointments = Array.isArray(appointmentsData) ? appointmentsData : [];
-      
-      const activeAppointments = existingAppointments.filter((apt: any) => 
-        apt.status !== 'cancelled' && apt.status !== 'no-show'
-      );
-      
-      let workingHours = null;
-      if (calendar && calendar.working_hours && Array.isArray(calendar.working_hours)) {
-        workingHours = calendar.working_hours.find((wh: any) => 
-          wh.day_of_week === dayOfWeek && wh.is_active
-        );
-      }
-      
-      const slots: TimeSlot[] = [];
-      
-      if (!workingHours || workingHours.is_closed) {
+      if (!slotsData.available) {
         setTimeSlots([]);
-        if (workingHours?.is_closed) {
+        if (slotsData.reason) {
           toast.info('This day is marked as closed (weekend/holiday) for this doctor');
         }
         setLoadingSlots(false);
         return;
       }
       
-      const [startHour, startMinute] = workingHours.start_time.split(':').map(Number);
-      const [endHour, endMinute] = workingHours.end_time.split(':').map(Number);
-      
-      let slotDuration = 30;
-      let breakDuration = 0;
-      
-      if (calendar.time_slots && Array.isArray(calendar.time_slots) && calendar.time_slots.length > 0) {
-        const timeSlotConfig = calendar.time_slots[0];
-        slotDuration = timeSlotConfig.slot_duration || 30;
-        breakDuration = timeSlotConfig.break_duration || 0;
-      }
-      
-      let currentHour = startHour;
-      let currentMinute = startMinute;
-      
-      while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
-        const time = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+      // Map backend slots to frontend format
+      const slots: TimeSlot[] = (slotsData.slots || []).map((slot: any) => {
+        const startTime = new Date(slot.start_time);
+        const hours = startTime.getHours().toString().padStart(2, '0');
+        const minutes = startTime.getMinutes().toString().padStart(2, '0');
+        const time = `${hours}:${minutes}`;
         
-        const slotDateTime = new Date(appointmentDate);
-        slotDateTime.setHours(currentHour, currentMinute, 0, 0);
-        
-        const isBooked = activeAppointments.some((apt: any) => {
-          const aptStart = new Date(apt.start_at);
-          const aptEnd = new Date(apt.end_at);
-          return slotDateTime >= aptStart && slotDateTime < aptEnd;
-        });
-        
-        slots.push({ time, available: !isBooked });
-        
-        currentMinute += slotDuration + breakDuration;
-        if (currentMinute >= 60) {
-          currentHour += Math.floor(currentMinute / 60);
-          currentMinute = currentMinute % 60;
-        }
-      }
+        return {
+          time,
+          available: slot.available && !slot.is_blocked,
+          is_blocked: slot.is_blocked,
+          block_reason: slot.block_reason,
+        };
+      });
       
       setTimeSlots(slots);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading time slots:', error);
       toast.error('Failed to load time slots');
       setTimeSlots([]);
@@ -250,6 +228,39 @@ const AppointmentCalendar = () => {
       setLoadingSlots(false);
     }
   };
+
+  useEffect(() => {
+    loadDoctors();
+    loadPatients();
+    loadColorCodes();
+    loadAppointments();
+    loadCalendarBlocks();
+  }, [selectedDoctor]);
+
+  useEffect(() => {
+    if ((modalMode === 'create' || modalMode === 'edit') && formData.doctor_id && formData.start_at) {
+      const appointmentDate = formData.start_at.split('T')[0];
+      
+      // If doctor has only one calendar, auto-select it
+      if (doctorCalendars.length === 1 && !formData.calendar_id) {
+        setFormData(prev => ({ ...prev, calendar_id: doctorCalendars[0].id }));
+        return;
+      }
+      
+      // If multiple calendars exist, wait for calendar selection
+      if (doctorCalendars.length > 1 && !formData.calendar_id) {
+        setTimeSlots([]);
+        return;
+      }
+      
+      // Load slots if we have a calendar_id
+      if (formData.calendar_id) {
+        loadAvailableTimeSlots(appointmentDate);
+      }
+    } else {
+      setTimeSlots([]);
+    }
+  }, [formData.doctor_id, formData.calendar_id, formData.start_at?.split('T')[0], modalMode, doctorCalendars.length]);
 
   const events: CalendarEvent[] = useMemo(() => {
     const mappedEvents = appointments.map((appointment) => {
@@ -293,11 +304,40 @@ const AppointmentCalendar = () => {
         start: startDate,
         end: endDate,
         resource: appointment,
+        isBlock: false,
       };
     });
     
-    return mappedEvents;
-  }, [appointments]);
+    // Add calendar blocks as events
+    const blockEvents = calendarBlocks.map((block) => {
+      const parseLocalDate = (dateString: string) => {
+        try {
+          const cleaned = dateString.replace(/\.\d{3}Z?$/, '').replace(' ', 'T');
+          const [datePart, timePart] = cleaned.split('T');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hours, minutes, seconds = 0] = timePart.split(':').map(Number);
+          return new Date(year, month - 1, day, hours, minutes, seconds);
+        } catch (error) {
+          console.error('Error parsing date:', dateString, error);
+          return new Date();
+        }
+      };
+      
+      const startDate = parseLocalDate(block.start_datetime);
+      const endDate = parseLocalDate(block.end_datetime);
+      
+      return {
+        id: `block-${block.id}`,
+        title: `🚫 BLOCKED\n${block.reason || block.exception_type}`,
+        start: startDate,
+        end: endDate,
+        resource: block,
+        isBlock: true,
+      };
+    });
+    
+    return [...mappedEvents, ...blockEvents];
+  }, [appointments, calendarBlocks]);
 
   const handleSelectSlot = (slotInfo: any) => {
     const startTime = moment(slotInfo.start).format('YYYY-MM-DDTHH:mm');
@@ -322,7 +362,13 @@ const AppointmentCalendar = () => {
   };
 
   const handleSelectEvent = async (event: CalendarEvent) => {
-    const appointment = event.resource;
+    // Don't allow selecting/editing block events
+    if (event.isBlock) {
+      toast.info('This is a calendar block. Manage blocks in Settings → Calendar Blocks');
+      return;
+    }
+    
+    const appointment = event.resource as Appointment;
     setSelectedAppointment(appointment);
     
     // Parse the UTC string without timezone conversion
@@ -395,6 +441,15 @@ const AppointmentCalendar = () => {
       const startDate = new Date(formData.start_at);
       const endDate = new Date(startDate.getTime() + formData.duration * 60000);
       
+      // Check if the selected time slot is blocked
+      const selectedTime = formData.start_at.split('T')[1]?.substring(0, 5);
+      const selectedSlot = timeSlots.find(slot => slot.time === selectedTime);
+      
+      if (selectedSlot && (selectedSlot as any).is_blocked) {
+        toast.error(`Cannot schedule appointment: ${(selectedSlot as any).block_reason || 'Time is blocked'}`);
+        return;
+      }
+      
       const appointmentData = {
         patient_id: formData.patient_id,
         doctor_id: formData.doctor_id,
@@ -449,7 +504,42 @@ const AppointmentCalendar = () => {
   };
 
   const eventStyleGetter = (event: CalendarEvent) => {
-    const appointment = event.resource;
+    // Style for calendar blocks
+    if (event.isBlock) {
+      const block = event.resource as CalendarBlock;
+      let backgroundColor = '#94a3b8'; // default gray
+      
+      switch (block.exception_type) {
+        case 'vacation':
+          backgroundColor = '#60a5fa'; // blue
+          break;
+        case 'holiday':
+          backgroundColor = '#34d399'; // green
+          break;
+        case 'emergency':
+          backgroundColor = '#f87171'; // red
+          break;
+        case 'block':
+          backgroundColor = '#94a3b8'; // gray
+          break;
+      }
+      
+      return {
+        style: {
+          backgroundColor,
+          borderRadius: '5px',
+          opacity: 0.7,
+          color: 'white',
+          border: '2px dashed white',
+          display: 'block',
+          fontWeight: 'bold',
+          textAlign: 'center' as const,
+        },
+      };
+    }
+    
+    // Style for regular appointments
+    const appointment = event.resource as Appointment;
     let backgroundColor = '#3174ad';
 
     // Use status-based colors for clear visual distinction
@@ -845,7 +935,7 @@ const AppointmentCalendar = () => {
                 </div>
 
                 {/* Time Slots */}
-                {modalMode === 'create' && formData.doctor_id && formData.start_at && (
+                {(modalMode === 'create' || modalMode === 'edit') && formData.doctor_id && formData.start_at && (
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-3">
                       Available Time Slots <span className="text-red-500">*</span>
@@ -857,7 +947,11 @@ const AppointmentCalendar = () => {
                       </div>
                     ) : timeSlots.length > 0 ? (
                       <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                        {timeSlots.map((slot) => (
+                        {timeSlots.map((slot) => {
+                          const isBlocked = (slot as any).is_blocked;
+                          const blockReason = (slot as any).block_reason;
+                          
+                          return (
                           <button
                             key={slot.time}
                             type="button"
@@ -865,18 +959,21 @@ const AppointmentCalendar = () => {
                               const date = formData.start_at.split('T')[0];
                               setFormData({ ...formData, start_at: `${date}T${slot.time}` });
                             }}
-                            disabled={!slot.available}
+                            disabled={!slot.available || isBlocked}
+                            title={isBlocked ? `Blocked: ${blockReason || 'Time unavailable'}` : (slot.available ? 'Available' : 'Booked')}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
                               formData.start_at.split('T')[1]?.startsWith(slot.time)
                                 ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                                : isBlocked
+                                ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
                                 : slot.available
                                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 : 'bg-gray-50 text-gray-400 cursor-not-allowed'
                             }`}
                           >
-                            {slot.time}
+                            {isBlocked && '🚫 '}{slot.time}
                           </button>
-                        ))}
+                        )})}
                       </div>
                     ) : formData.doctor_id && formData.start_at ? (
                       <p className="text-gray-500 text-sm">No available time slots for this date</p>

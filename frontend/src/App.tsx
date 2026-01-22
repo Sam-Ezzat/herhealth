@@ -11,6 +11,7 @@ import AppointmentCalendar from './pages/appointments/AppointmentCalendar';
 import { VisitList, VisitForm, VisitDetail, PatientVisitHistory } from './pages/visits';
 import { DoctorCalendars, WhatsAppTemplates, WhatsAppSettings, WhatsAppMessages, RoleManagement, UserManagement } from './pages/settings';
 import ColorCodes from './pages/settings/ColorCodes';
+import CalendarBlocks from './pages/settings/CalendarBlocks';
 import Profile from './pages/Profile';
 import PregnancyJourneyList from './pages/pregnancy/PregnancyJourneyList';
 import PregnancyJourneyDetail from './pages/pregnancy/PregnancyJourneyDetail';
@@ -83,6 +84,7 @@ function App() {
           <Route path="profile" element={<Profile />} />
           
           <Route path="settings/calendars" element={<DoctorCalendars />} />
+          <Route path="settings/calendar-blocks" element={<CalendarBlocks />} />
           <Route path="settings/users" element={<UserManagement />} />
           <Route path="settings/roles" element={<RoleManagement />} />
           <Route path="settings/whatsapp" element={<WhatsAppSettings />} />

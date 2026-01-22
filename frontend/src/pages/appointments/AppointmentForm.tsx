@@ -10,6 +10,8 @@ import { FiSave, FiX } from 'react-icons/fi';
 interface TimeSlot {
   time: string;
   available: boolean;
+  is_blocked?: boolean;
+  block_reason?: string;
 }
 
 const AppointmentForm = () => {
@@ -186,15 +188,15 @@ const AppointmentForm = () => {
           
           slots.push({
             time,
-            available: slot.available
+          available: slot.available,
+          is_blocked: slot.is_blocked || false,
+          block_reason: slot.block_reason || '',
           });
         });
       }
-      
       setTimeSlots(slots);
     } catch (error) {
       console.error('Error loading time slots:', error);
-      toast.error('Failed to load time slots');
       setTimeSlots([]);
     } finally {
       setLoadingSlots(false);
@@ -293,6 +295,16 @@ const AppointmentForm = () => {
 
     if (!validate()) {
       return;
+    }
+
+    // Check if selected time slot is blocked
+    if (formData.start_at && timeSlots.length > 0) {
+      const selectedTime = formData.start_at.split('T')[1]?.substring(0, 5); // Get HH:mm
+      const selectedSlot = timeSlots.find(slot => slot.time === selectedTime);
+      if (selectedSlot && selectedSlot.is_blocked) {
+        toast.error(`Cannot schedule appointment: ${selectedSlot.block_reason || 'Time slot is blocked'}`);
+        return;
+      }
     }
 
     try {
@@ -636,31 +648,38 @@ const AppointmentForm = () => {
                 </div>
               ) : timeSlots.length > 0 ? (
                 <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                  {timeSlots.map((slot) => (
-                    <button
-                      key={slot.time}
-                      type="button"
-                      onClick={() => {
-                        const date = formData.start_at.split('T')[0];
-                        const newStartAt = `${date}T${slot.time}`;
-                        handleChange({ target: { name: 'start_at', value: newStartAt } } as any);
-                      }}
-                      disabled={!slot.available}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                        formData.start_at.split('T')[1]?.startsWith(slot.time)
-                          ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
-                          : slot.available
-                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          : 'bg-gray-50 text-gray-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
+                  {timeSlots.map((slot) => {
+                    const isBlocked = slot.is_blocked;
+                    const blockReason = slot.block_reason;
+                    return (
+                      <button
+                        key={slot.time}
+                        type="button"
+                        onClick={() => {
+                          const date = formData.start_at.split('T')[0];
+                          const newStartAt = `${date}T${slot.time}`;
+                          handleChange({ target: { name: 'start_at', value: newStartAt } } as any);
+                        }}
+                        disabled={!slot.available || isBlocked}
+                        title={isBlocked ? `Blocked: ${blockReason || 'Time slot unavailable'}` : ''}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                          isBlocked
+                            ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
+                            : formData.start_at.split('T')[1]?.startsWith(slot.time)
+                            ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                            : slot.available
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {isBlocked && '🚫 '}{slot.time}
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : formData.doctor_id && formData.start_at ? (
+              ) : (
                 <p className="text-gray-500 text-sm">No available time slots for this date</p>
-              ) : null}
+              )}
             </div>
           )}
 

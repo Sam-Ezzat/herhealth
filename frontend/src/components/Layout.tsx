@@ -32,7 +32,8 @@ const Layout = () => {
       label: 'Doctors',
       submenu: [
         { path: '/doctors', label: 'All Doctors' },
-        { path: '/settings/calendars', label: 'Schedules & Calendar' }
+        { path: '/settings/calendars', label: 'Schedules & Calendar' },
+        { path: '/settings/calendar-blocks', label: 'Calendar Blocks' }
       ]
     },
     { 

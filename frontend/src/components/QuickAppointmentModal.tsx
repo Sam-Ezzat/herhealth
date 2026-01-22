@@ -25,6 +25,8 @@ interface ColorCode {
 interface TimeSlot {
   time: string;
   available: boolean;
+  is_blocked?: boolean;
+  block_reason?: string;
 }
 
 interface Patient {
@@ -203,125 +205,45 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
   const loadAvailableTimeSlots = async () => {
     setLoadingSlots(true);
     try {
-      // Build URL with calendarId if available
-      let calendarUrl = `/calendars/doctor/${formData.doctor_id}`;
+      // Use the backend API that checks for calendar blocks
+      let queryString = `doctorId=${formData.doctor_id}&date=${formData.appointment_date}`;
+      
       if (formData.calendar_id) {
-        calendarUrl = `/calendars/${formData.calendar_id}`;
+        queryString += `&calendarId=${formData.calendar_id}`;
       }
       
-      // Get doctor's calendar with working hours and time slots
-      const calendarResponse: any = await api.get(calendarUrl);
-      const calendar = calendarResponse.data?.data || calendarResponse.data || calendarResponse;
+      const response = await api.get(`/calendars/available-slots?${queryString}`);
+      const slotsData = response.data?.data || response.data;
       
-      console.log('Calendar data received:', calendar);
-      
-      // Get working hours for the selected date
-      const selectedDate = new Date(formData.appointment_date);
-      const dayOfWeek = selectedDate.getDay(); // 0 = Sunday, 6 = Saturday
-      
-      console.log('Selected day of week:', dayOfWeek);
-      
-      // Get existing appointments for the selected date
-      const startOfDay = `${formData.appointment_date}T00:00:00`;
-      const endOfDay = `${formData.appointment_date}T23:59:59`;
-      
-      const appointmentsResponse: any = await api.get(`/appointments?doctor_id=${formData.doctor_id}&date_from=${startOfDay}&date_to=${endOfDay}`);
-      const appointmentsData = appointmentsResponse.data?.data || appointmentsResponse.data || appointmentsResponse;
-      const existingAppointments = Array.isArray(appointmentsData) ? appointmentsData : [];
-      
-      // Filter out cancelled and no-show appointments - they shouldn't block time slots
-      const activeAppointments = existingAppointments.filter((apt: any) => 
-        apt.status !== 'cancelled' && apt.status !== 'no-show'
-      );
-      
-      // Find working hours for this day
-      let workingHours = null;
-      if (calendar && calendar.working_hours && Array.isArray(calendar.working_hours)) {
-        workingHours = calendar.working_hours.find((wh: any) => 
-          wh.day_of_week === dayOfWeek && wh.is_active
-        );
-        console.log('Working hours for this day:', workingHours);
-      }
-      
-      const slots: TimeSlot[] = [];
-      
-      // Check if this day is closed (weekend/holiday)
-      if (!workingHours || workingHours.is_closed) {
-        console.log('Day is closed - no slots available');
+      if (!slotsData.available) {
         setTimeSlots([]);
-        if (workingHours?.is_closed) {
+        if (slotsData.reason) {
           toast.info('This day is marked as closed (weekend/holiday) for this doctor');
-        } else {
-          toast.info('No working hours configured for this day');
         }
         setLoadingSlots(false);
         return;
       }
       
-      // Parse working hours
-      const [startHour, startMinute] = workingHours.start_time.split(':').map(Number);
-      const [endHour, endMinute] = workingHours.end_time.split(':').map(Number);
-      
-      // Get slot duration from time_slots configuration
-      let slotDuration = 30; // Default
-      let breakDuration = 0; // Default
-      
-      if (calendar.time_slots && Array.isArray(calendar.time_slots) && calendar.time_slots.length > 0) {
-        const timeSlotConfig = calendar.time_slots[0];
-        slotDuration = timeSlotConfig.slot_duration || 30;
-        breakDuration = timeSlotConfig.break_duration || 0;
-        console.log('Using configured slot duration:', slotDuration, 'minutes, break:', breakDuration, 'minutes');
+      // Map backend slots to frontend format
+      const slots: TimeSlot[] = (slotsData.slots || []).map((slot: any) => {
+        const startTime = new Date(slot.start_time);
+        const hours = startTime.getHours().toString().padStart(2, '0');
+        const minutes = startTime.getMinutes().toString().padStart(2, '0');
+        const time = `${hours}:${minutes}`;
         
-        // Update form duration to match calendar slot duration
-        setFormData(prev => ({
-          ...prev,
-          duration: slotDuration.toString()
-        }));
-      } else {
-        console.log('No time slots configured, using default 30 minutes');
-      }
+        return {
+          time,
+          available: slot.available && !slot.is_blocked,
+          is_blocked: slot.is_blocked,
+          block_reason: slot.block_reason,
+        };
+      });
       
-      // Generate time slots
-      let currentHour = startHour;
-      let currentMinute = startMinute;
-      
-      while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
-        const time = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
-        
-        // Check if this slot is already booked by active appointments
-        const slotDateTime = new Date(formData.appointment_date);
-        slotDateTime.setHours(currentHour, currentMinute, 0, 0);
-        
-        const isBooked = activeAppointments.some((apt: any) => {
-          const aptStart = new Date(apt.start_at);
-          const aptEnd = new Date(apt.end_at);
-          return slotDateTime >= aptStart && slotDateTime < aptEnd;
-        });
-        
-        slots.push({ time, available: !isBooked });
-        
-        // Move to next slot
-        currentMinute += slotDuration + breakDuration;
-        if (currentMinute >= 60) {
-          currentHour += Math.floor(currentMinute / 60);
-          currentMinute = currentMinute % 60;
-        }
-      }
-      
-      console.log('Generated', slots.length, 'time slots');
       setTimeSlots(slots);
     } catch (error) {
       console.error('Error loading time slots:', error);
       toast.error('Failed to load time slots');
-      // Fallback to default slots
-      const slots: TimeSlot[] = [];
-      for (let hour = 9; hour < 17; hour++) {
-        for (let minute = 0; minute < 60; minute += 30) {
-          const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-          slots.push({ time, available: true });
-        }
-      }
-      setTimeSlots(slots);
+      setTimeSlots([]);
     } finally {
       setLoadingSlots(false);
     }
@@ -343,6 +265,13 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
     if (!formData.first_name || !formData.last_name || !formData.phone || 
         !formData.doctor_id || !formData.appointment_date || !formData.appointment_time) {
       toast.error('Please fill all required fields');
+      return;
+    }
+
+    // Check if the selected time slot is blocked
+    const selectedSlot = timeSlots.find(slot => slot.time === formData.appointment_time);
+    if (selectedSlot && selectedSlot.is_blocked) {
+      toast.error(`Cannot schedule appointment: ${selectedSlot.block_reason || 'Time is blocked'}`);
       return;
     }
 
@@ -769,23 +698,30 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
                 </div>
               ) : (
                 <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                  {timeSlots.map((slot) => (
+                  {timeSlots.map((slot) => {
+                    const isBlocked = slot.is_blocked;
+                    const blockReason = slot.block_reason;
+                    
+                    return (
                     <button
                       key={slot.time}
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, appointment_time: slot.time }))}
-                      disabled={!slot.available}
+                      disabled={!slot.available || isBlocked}
+                      title={isBlocked ? `Blocked: ${blockReason || 'Time unavailable'}` : (slot.available ? 'Available' : 'Booked')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
                         formData.appointment_time === slot.time
                           ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                          : isBlocked
+                          ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
                           : slot.available
                           ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           : 'bg-gray-50 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {slot.time}
+                      {isBlocked && '🚫 '}{slot.time}
                     </button>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>

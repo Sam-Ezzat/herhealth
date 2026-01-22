@@ -433,19 +433,13 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
     `SELECT * FROM calendar_exceptions 
      WHERE calendar_id = $1 
      AND DATE(start_datetime) <= $2 
-     AND DATE(end_datetime) >= $2`,
+     AND DATE(end_datetime) >= $2
+     ORDER BY start_datetime`,
     [calendar.id, date]
   );
 
-  if (exceptionsResult.rows.length > 0) {
-    const exception = exceptionsResult.rows[0];
-    return {
-      date,
-      available: false,
-      reason: exception.reason || exception.exception_type,
-      slots: []
-    };
-  }
+  // Get exceptions that affect specific time ranges
+  const dayExceptions = exceptionsResult.rows;
 
   // Get time slot configuration
   const timeSlots = await CalendarModel.findTimeSlotsByCalendarId(calendar.id);
@@ -511,15 +505,57 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
       return (slotStartMinutes < aptEndMinutes && slotEndMinutes > aptStartMinutes);
     }).length;
 
-    // Slot is available if: not in the past AND not fully booked
-    const available = !isPast && bookedCount < slotConfig.max_appointments_per_slot;
+    // Check if slot is blocked by any exception
+    let isBlocked = false;
+    let blockReason = '';
+    for (const exception of dayExceptions) {
+      const exceptionStart = new Date(exception.start_datetime);
+      const exceptionEnd = new Date(exception.end_datetime);
+      
+      // Get date-only parts for comparison (ignoring time)
+      const exceptionStartDateOnly = new Date(exceptionStart.getFullYear(), exceptionStart.getMonth(), exceptionStart.getDate());
+      const exceptionEndDateOnly = new Date(exceptionEnd.getFullYear(), exceptionEnd.getMonth(), exceptionEnd.getDate());
+      const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      
+      // Check if target date is within the exception date range
+      const isInDateRange = targetDateOnly >= exceptionStartDateOnly && targetDateOnly <= exceptionEndDateOnly;
+      
+      if (!isInDateRange) continue;
+      
+      // If exception spans multiple days, determine the effective start/end times for this specific day
+      let effectiveStartMinutes = 0; // Start of day (00:00)
+      let effectiveEndMinutes = 24 * 60; // End of day (24:00)
+      
+      // If exception starts on this day, use the actual start time
+      if (targetDateOnly.getTime() === exceptionStartDateOnly.getTime()) {
+        effectiveStartMinutes = exceptionStart.getHours() * 60 + exceptionStart.getMinutes();
+      }
+      
+      // If exception ends on this day, use the actual end time
+      if (targetDateOnly.getTime() === exceptionEndDateOnly.getTime()) {
+        effectiveEndMinutes = exceptionEnd.getHours() * 60 + exceptionEnd.getMinutes();
+      }
+      
+      // Check if this slot overlaps with the effective exception time range
+      // Slot overlaps if: slot_start < exception_end AND slot_end > exception_start
+      if (slotStartMinutes < effectiveEndMinutes && slotEndMinutes > effectiveStartMinutes) {
+        isBlocked = true;
+        blockReason = exception.reason || exception.exception_type;
+        break;
+      }
+    }
+
+    // Slot is available if: not in the past AND not fully booked AND not blocked
+    const available = !isPast && !isBlocked && bookedCount < slotConfig.max_appointments_per_slot;
 
     slots.push({
       start_time: startTimeStr,
       end_time: endTimeStr,
       available,
       booked_count: bookedCount,
-      max_appointments: slotConfig.max_appointments_per_slot
+      max_appointments: slotConfig.max_appointments_per_slot,
+      is_blocked: isBlocked,
+      block_reason: isBlocked ? blockReason : undefined
     });
 
     // Move to next slot (slot_duration + break_duration)
