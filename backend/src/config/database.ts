@@ -26,8 +26,13 @@ const poolConfig: PoolConfig = process.env.DATABASE_URL
 
 const pool = new Pool(poolConfig);
 
-pool.on('connect', () => {
+pool.on('connect', (client) => {
   console.log('Database connected successfully');
+  // Set timezone to Africa/Cairo (UTC+2) to match Egyptian local time
+  // This ensures timestamps are interpreted correctly
+  client.query("SET timezone = 'Africa/Cairo'").catch(err => {
+    console.error('Failed to set timezone:', err);
+  });
 });
 
 pool.on('error', (err) => {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import appointmentService, { Appointment } from '../../services/appointment.service';
 import { FiArrowLeft, FiEdit2, FiCalendar, FiClock, FiUser, FiFileText } from 'react-icons/fi';
+import { formatTime, calculateDuration } from '../../utils/timeUtils';
 
 const AppointmentDetail = () => {
   const { id } = useParams();
@@ -47,23 +48,6 @@ const AppointmentDetail = () => {
       month: 'long',
       day: 'numeric',
     });
-  };
-
-  const formatTime = (dateString: string) => {
-    // Parse datetime string directly without timezone conversion
-    // Expected format: 'YYYY-MM-DDTHH:MM:SS' or 'YYYY-MM-DD HH:MM:SS'
-    const timePart = dateString.includes('T') ? dateString.split('T')[1] : dateString.split(' ')[1];
-    const [hours, minutes] = timePart.split(':').map(Number);
-    
-    // Format to 12-hour time
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
-  };
-
-  const calculateDuration = (start: string, end: string) => {
-    const diff = new Date(end).getTime() - new Date(start).getTime();
-    return Math.round(diff / 60000);
   };
 
   if (loading) {

@@ -6,6 +6,7 @@ import patientService from '../../services/patient.service';
 import doctorService from '../../services/doctor.service';
 import api from '../../services/api';
 import { FiSave, FiX } from 'react-icons/fi';
+import { parseTimeSlot, parseDbDateTimeToLocal } from '../../utils/timeUtils';
 
 interface TimeSlot {
   time: string;
@@ -132,8 +133,8 @@ const AppointmentForm = () => {
         patient_id: appointment.patient_id,
         doctor_id: appointment.doctor_id,
         calendar_id: appointment.calendar_id || '',
-        start_at: start.toISOString().slice(0, 16),
-        end_at: end.toISOString().slice(0, 16),
+        start_at: parseDbDateTimeToLocal(appointment.start_at),
+        end_at: parseDbDateTimeToLocal(appointment.end_at),
         type: appointment.type,
         status: appointment.status,
         reservation_type: appointment.reservation_type || 'Clinic',
@@ -180,11 +181,8 @@ const AppointmentForm = () => {
       
       if (slotsData.slots && Array.isArray(slotsData.slots)) {
         slotsData.slots.forEach((slot: any) => {
-          // Backend now returns 'YYYY-MM-DD HH:MM:SS' format without timezone
-          // Extract just the time part
-          const startTime = slot.start_time.split(' ')[1]; // Get 'HH:MM:SS'
-          const [hours, minutes] = startTime.split(':');
-          const time = `${hours}:${minutes}`;
+          // Use centralized time parsing utility
+          const time = parseTimeSlot(slot.start_time);
           
           slots.push({
             time,
@@ -310,8 +308,15 @@ const AppointmentForm = () => {
     try {
       setLoading(true);
 
+      // Format datetime with seconds for backend (no timezone conversion)
+      const appointmentData = {
+        ...formData,
+        start_at: formData.start_at ? formData.start_at + ':00' : '',
+        end_at: formData.end_at ? formData.end_at + ':00' : '',
+      };
+
       if (isEditMode && id) {
-        await appointmentService.update(id, formData);
+        await appointmentService.update(id, appointmentData);
         
         // Update patient color code if changed
         if (selectedPatientColorCode && formData.patient_id) {
@@ -326,7 +331,7 @@ const AppointmentForm = () => {
         
         toast.success('Appointment updated successfully');
       } else {
-        await appointmentService.create(formData);
+        await appointmentService.create(appointmentData);
         
         // Update patient color code if specified
         if (selectedPatientColorCode && formData.patient_id) {

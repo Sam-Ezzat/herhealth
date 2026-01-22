@@ -5,6 +5,7 @@ import PaymentInvoiceModal from '../../components/PaymentInvoiceModal';
 import api from '../../services/api';
 import visitPaymentService from '../../services/visit-payment.service';
 import { Link } from 'react-router-dom';
+import { formatTime } from '../../utils/timeUtils';
 
 interface DashboardStats {
   totalPatients: number;
@@ -153,18 +154,6 @@ const Dashboard = () => {
       case 'no-answer': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const formatTime = (dateString: string) => {
-    // Parse datetime string directly without timezone conversion
-    // Expected format: 'YYYY-MM-DDTHH:MM:SS' or 'YYYY-MM-DD HH:MM:SS'
-    const timePart = dateString.includes('T') ? dateString.split('T')[1] : dateString.split(' ')[1];
-    const [hours, minutes] = timePart.split(':').map(Number);
-    
-    // Format to 12-hour time
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
   };
 
   return (

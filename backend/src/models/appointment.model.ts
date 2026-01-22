@@ -95,7 +95,19 @@ export const findAllAppointments = async (
 
   const sql = `
     SELECT 
-      a.*,
+      a.id,
+      a.patient_id,
+      a.doctor_id,
+      a.calendar_id,
+      TO_CHAR(a.start_at AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD"T"HH24:MI:SS') as start_at,
+      TO_CHAR(a.end_at AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD"T"HH24:MI:SS') as end_at,
+      a.type,
+      a.status,
+      a.reservation_type,
+      a.notes,
+      a.created_by,
+      a.created_at,
+      a.updated_at,
       CONCAT(p.first_name, ' ', p.last_name) as patient_name,
       p.phone as patient_phone,
       cc.color_hex as patient_color_code,
@@ -125,7 +137,19 @@ export const findAllAppointments = async (
 export const findAppointmentById = async (id: string): Promise<Appointment | null> => {
   const sql = `
     SELECT 
-      a.*,
+      a.id,
+      a.patient_id,
+      a.doctor_id,
+      a.calendar_id,
+      TO_CHAR(a.start_at AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD"T"HH24:MI:SS') as start_at,
+      TO_CHAR(a.end_at AT TIME ZONE 'Africa/Cairo', 'YYYY-MM-DD"T"HH24:MI:SS') as end_at,
+      a.type,
+      a.status,
+      a.reservation_type,
+      a.notes,
+      a.created_by,
+      a.created_at,
+      a.updated_at,
       CONCAT(p.first_name, ' ', p.last_name) as patient_name,
       p.phone as patient_phone,
       cc.color_hex as patient_color_code,
@@ -179,7 +203,7 @@ export const createAppointment = async (
     patient_id,
     doctor_id,
     calendar_id || null,
-    start_at,
+    start_at, // PostgreSQL will interpret this as local time if no timezone specified
     end_at,
     type,
     status || 'scheduled',
@@ -189,7 +213,10 @@ export const createAppointment = async (
   ];
 
   const result = await query(sql, values);
-  return result.rows[0];
+  
+  // Return with times formatted without timezone conversion
+  const appointment = result.rows[0];
+  return appointment;
 };
 
 // Update appointment

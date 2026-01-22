@@ -8,6 +8,7 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar.css';
 import { toast } from 'react-toastify';
 import appointmentService, { Appointment } from '../../services/appointment.service';
+import { parseTimeSlot, parseDbDateTimeToLocal } from '../../utils/timeUtils';
 import doctorService, { Doctor } from '../../services/doctor.service';
 import patientService, { Patient } from '../../services/patient.service';
 import api from '../../services/api';
@@ -15,6 +16,17 @@ import { FiPlus, FiFilter, FiX, FiSave, FiTrash2 } from 'react-icons/fi';
 
 const localizer = momentLocalizer(moment);
 const DragAndDropCalendar = withDragAndDrop(Calendar);
+
+// Helper function to format datetime without timezone conversion
+const formatLocalDateTime = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
 
 interface CalendarEvent {
   id: string;
@@ -206,10 +218,7 @@ const AppointmentCalendar = () => {
       
       // Map backend slots to frontend format
       const slots: TimeSlot[] = (slotsData.slots || []).map((slot: any) => {
-        const startTime = new Date(slot.start_time);
-        const hours = startTime.getHours().toString().padStart(2, '0');
-        const minutes = startTime.getMinutes().toString().padStart(2, '0');
-        const time = `${hours}:${minutes}`;
+        const time = parseTimeSlot(slot.start_time);
         
         return {
           time,
@@ -371,17 +380,12 @@ const AppointmentCalendar = () => {
     const appointment = event.resource as Appointment;
     setSelectedAppointment(appointment);
     
-    // Parse the UTC string without timezone conversion
-    const parseToLocalFormat = (dateString: string) => {
-      const cleaned = dateString.replace(/\.\d{3}Z?$/, '').replace(' ', 'T');
-      return cleaned.substring(0, 16); // Return 'YYYY-MM-DDTHH:mm' format
-    };
-    
+    // Use centralized datetime parsing to avoid timezone issues
     setFormData({
       patient_id: appointment.patient_id,
       doctor_id: appointment.doctor_id,
       calendar_id: appointment.calendar_id || '',
-      start_at: parseToLocalFormat(appointment.start_at),
+      start_at: parseDbDateTimeToLocal(appointment.start_at),
       duration: moment(appointment.end_at).diff(moment(appointment.start_at), 'minutes'),
       type: appointment.type,
       status: appointment.status as 'scheduled',
@@ -409,9 +413,10 @@ const AppointmentCalendar = () => {
   const handleEventDrop = async ({ event, start, end }: any) => {
     try {
       const appointment = event.resource as Appointment;
+      
       await appointmentService.update(appointment.id, {
-        start_at: moment(start).toISOString(),
-        end_at: moment(end).toISOString(),
+        start_at: formatLocalDateTime(start),
+        end_at: formatLocalDateTime(end),
       });
       toast.success('Appointment rescheduled successfully');
       loadAppointments();
@@ -423,9 +428,10 @@ const AppointmentCalendar = () => {
   const handleEventResize = async ({ event, start, end }: any) => {
     try {
       const appointment = event.resource as Appointment;
+      
       await appointmentService.update(appointment.id, {
-        start_at: moment(start).toISOString(),
-        end_at: moment(end).toISOString(),
+        start_at: formatLocalDateTime(start),
+        end_at: formatLocalDateTime(end),
       });
       toast.success('Appointment duration updated');
       loadAppointments();
@@ -454,8 +460,8 @@ const AppointmentCalendar = () => {
         patient_id: formData.patient_id,
         doctor_id: formData.doctor_id,
         calendar_id: formData.calendar_id || undefined,
-        start_at: startDate.toISOString(),
-        end_at: endDate.toISOString(),
+        start_at: formatLocalDateTime(startDate),
+        end_at: formatLocalDateTime(endDate),
         type: formData.type,
         status: formData.status,
         reservation_type: formData.reservation_type,

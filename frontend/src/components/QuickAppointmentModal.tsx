@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FiX, FiCalendar, FiUser, FiPhone } from 'react-icons/fi';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import { parseTimeSlot, createAppointmentDateTime, calculateEndTime } from '../utils/timeUtils';
 
 interface QuickAppointmentModalProps {
   isOpen: boolean;
@@ -226,10 +227,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
       
       // Map backend slots to frontend format
       const slots: TimeSlot[] = (slotsData.slots || []).map((slot: any) => {
-        const startTime = new Date(slot.start_time);
-        const hours = startTime.getHours().toString().padStart(2, '0');
-        const minutes = startTime.getMinutes().toString().padStart(2, '0');
-        const time = `${hours}:${minutes}`;
+        const time = parseTimeSlot(slot.start_time);
         
         return {
           time,
@@ -301,30 +299,15 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
       }
       
       // Create appointment
-      const [year, month, day] = formData.appointment_date.split('-');
-      const [hours, minutes] = formData.appointment_time.split(':');
-      const startAt = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
-      
-      // Calculate end time
-      const endAt = new Date(startAt);
-      endAt.setMinutes(endAt.getMinutes() + parseInt(formData.duration));
-      
-      // Format dates
-      const formatDateTime = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
-      };
+      const startAt = createAppointmentDateTime(formData.appointment_date, formData.appointment_time);
+      const endAt = calculateEndTime(startAt, parseInt(formData.duration));
       
       const appointmentData = {
         patient_id: patientId,
         doctor_id: formData.doctor_id,
         calendar_id: formData.calendar_id || undefined,
-        start_at: formatDateTime(startAt),
-        end_at: formatDateTime(endAt),
+        start_at: startAt,
+        end_at: endAt,
         type: 'Walk-in Appointment',
         status: 'scheduled',
         notes: formData.notes
