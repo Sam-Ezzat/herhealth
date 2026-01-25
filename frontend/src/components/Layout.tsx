@@ -2,6 +2,7 @@ import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { FiHome, FiUsers, FiCalendar, FiFileText, FiSettings, FiLogOut, FiMenu, FiUserPlus, FiMessageSquare, FiUser, FiShield } from 'react-icons/fi';
 import { useState } from 'react';
+import logo from '../assets/logo.png';
 
 const Layout = () => {
   const navigate = useNavigate();
@@ -95,7 +96,9 @@ const Layout = () => {
             >
               <FiMenu size={24} />
             </button>
-            <h1 className="text-2xl font-bold text-blue-600">HerHealth</h1>
+            <div className="flex items-center">
+              <img src={logo} alt="HerHealth" className="h-14 w-auto" />
+            </div>
           </div>
           
           <div className="flex items-center gap-4">

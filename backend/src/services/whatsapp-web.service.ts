@@ -30,7 +30,12 @@ export const initializeWhatsAppWeb = async (): Promise<void> => {
     whatsappWeb.isReady = false;
 
     // Create session directory if it doesn't exist
-    const sessionPath = path.join(__dirname, '../../.wwebjs_auth');
+    // Use a writable path in production (serverless environments are often read-only)
+    const sessionPath = process.env.WHATSAPP_WEB_AUTH_PATH
+      ? path.resolve(process.env.WHATSAPP_WEB_AUTH_PATH)
+      : process.env.NODE_ENV === 'production'
+        ? path.join('/tmp', '.wwebjs_auth')
+        : path.join(process.cwd(), '.wwebjs_auth');
     if (!fs.existsSync(sessionPath)) {
       fs.mkdirSync(sessionPath, { recursive: true });
     }

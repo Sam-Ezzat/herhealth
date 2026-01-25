@@ -38,6 +38,11 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Favicon handler to avoid 404 noise
+app.get('/favicon.ico', (_req, res) => {
+  res.status(204).end();
+});
+
 // API routes
 app.use(config.apiPrefix, routes);
 
