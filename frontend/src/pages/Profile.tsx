@@ -127,20 +127,20 @@ export default function Profile() {
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab('profile')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 ${
+              className={`px-6 py-2.5 text-sm font-medium rounded-lg ${
                 activeTab === 'profile'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               Profile Information
             </button>
             <button
               onClick={() => setActiveTab('password')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 ${
+              className={`px-6 py-2.5 text-sm font-medium rounded-lg ${
                 activeTab === 'password'
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               Change Password
@@ -227,7 +227,7 @@ export default function Profile() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-4 py-2 text-white bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg hover:from-pink-600 hover:to-purple-700 disabled:opacity-50"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : 'Save Changes'}
@@ -316,7 +316,7 @@ export default function Profile() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-4 py-2 text-white bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg hover:from-pink-600 hover:to-purple-700 disabled:opacity-50"
                     disabled={loading}
                   >
                     {loading ? 'Changing...' : 'Change Password'}

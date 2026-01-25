@@ -154,7 +154,7 @@ const RoleManagement: React.FC = () => {
         </div>
         <button
           onClick={handleCreateRole}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 flex items-center gap-2"
         >
           <span>+</span>
           Create Role
@@ -310,7 +310,7 @@ const RoleManagement: React.FC = () => {
               </button>
               <button
                 onClick={handleSaveRole}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:from-pink-600 hover:to-purple-700"
                 disabled={!formData.name || formData.permissions.length === 0}
               >
                 {editingRole ? 'Update Role' : 'Create Role'}

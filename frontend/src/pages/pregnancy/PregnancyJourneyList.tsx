@@ -87,7 +87,7 @@ const PregnancyJourneyList = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 py-8 pt-12 max-w-6xl">
       {/* Header */}
       <div className="mb-6 flex justify-between items-center">
         <div>
@@ -96,7 +96,7 @@ const PregnancyJourneyList = () => {
         </div>
         <button
           onClick={() => navigate(`/patients/${patientId}/pregnancy/new`)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
         >
           <FiPlus /> New Pregnancy
         </button>
@@ -110,7 +110,7 @@ const PregnancyJourneyList = () => {
           <p className="text-xs text-gray-500">Debug: pregnancies = {JSON.stringify(pregnancies)}</p>
           <button
             onClick={() => navigate(`/patients/${patientId}/pregnancy/new`)}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
           >
             <FiPlus /> Add First Pregnancy
           </button>

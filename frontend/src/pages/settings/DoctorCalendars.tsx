@@ -371,7 +371,7 @@ const DoctorCalendars = () => {
           </div>
           <button
             onClick={handleCreateCalendar}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
           >
             <FiPlus size={18} />
             Create Calendar
@@ -548,7 +548,7 @@ const DoctorCalendars = () => {
                 </h3>
                 <button 
                   onClick={() => handleAddTimeSlot(calendar.id)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700"
                 >
                   <FiPlus size={16} />
                   Configure Slots
@@ -694,7 +694,7 @@ const DoctorCalendars = () => {
               </button>
               <button
                 onClick={handleSaveWorkingHours}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 flex items-center gap-2"
               >
                 <FiSave size={16} />
                 Save
@@ -774,7 +774,7 @@ const DoctorCalendars = () => {
               </button>
               <button
                 onClick={handleSaveTimeSlot}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 flex items-center gap-2"
               >
                 <FiSave size={16} />
                 Save
@@ -960,7 +960,7 @@ const DoctorCalendars = () => {
               </button>
               <button
                 onClick={handleSaveCalendar}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 flex items-center gap-2"
               >
                 <FiSave size={16} />
                 {editingCalendar ? 'Save Changes' : 'Create Calendar'}

@@ -188,6 +188,7 @@ const AppointmentForm = () => {
             time,
           available: slot.available,
           is_blocked: slot.is_blocked || false,
+
           block_reason: slot.block_reason || '',
           });
         });
@@ -671,7 +672,7 @@ const AppointmentForm = () => {
                           isBlocked
                             ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
                             : formData.start_at.split('T')[1]?.startsWith(slot.time)
-                            ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                            ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white ring-2 ring-purple-500 ring-offset-2'
                             : slot.available
                             ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             : 'bg-gray-50 text-gray-400 cursor-not-allowed'
@@ -793,7 +794,7 @@ const AppointmentForm = () => {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FiSave />
             {loading ? 'Saving...' : isEditMode ? 'Update Appointment' : 'Create Appointment'}

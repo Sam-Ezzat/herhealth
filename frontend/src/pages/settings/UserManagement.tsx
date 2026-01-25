@@ -180,7 +180,7 @@ export default function UserManagement() {
         {can(Permissions.USERS_CREATE) && (
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700"
           >
             <FiPlus /> Add User
           </button>
@@ -424,7 +424,7 @@ export default function UserManagement() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    className="px-4 py-2 text-white bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg hover:from-pink-600 hover:to-purple-700 disabled:opacity-50"
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : editingUser ? 'Update User' : 'Create User'}

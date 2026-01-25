@@ -694,7 +694,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
                       title={isBlocked ? `Blocked: ${blockReason || 'Time unavailable'}` : (slot.available ? 'Available' : 'Booked')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
                         formData.appointment_time === slot.time
-                          ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white ring-2 ring-purple-500 ring-offset-2'
                           : isBlocked
                           ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
                           : slot.available
@@ -737,7 +737,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={submitting}
             >
               {submitting ? 'Creating...' : 'Create Appointment'}

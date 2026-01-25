@@ -109,7 +109,7 @@ const VisitDetail = () => {
           <div className="flex gap-2">
             <button
               onClick={() => navigate(`/visits/${id}/edit`)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
             >
               <FiEdit2 /> Edit
             </button>

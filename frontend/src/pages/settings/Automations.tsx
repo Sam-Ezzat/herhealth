@@ -510,7 +510,7 @@ const Automations = () => {
             type="button"
             onClick={handleExecute}
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:from-pink-600 hover:to-purple-700 disabled:opacity-50"
           >
             <FiClock /> {submitting ? 'Processing...' : 'Run Automation'}
           </button>
@@ -607,7 +607,7 @@ const Automations = () => {
                   setShowPreviewModal(false);
                 }}
                 disabled={submitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:from-pink-600 hover:to-purple-700 disabled:opacity-50"
               >
                 Save Selection
               </button>

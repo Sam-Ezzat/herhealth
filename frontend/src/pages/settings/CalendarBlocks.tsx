@@ -338,7 +338,7 @@ const CalendarBlocks = () => {
             resetForm();
             setShowModal(true);
           }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
         >
           <FiPlus /> Create Block
         </button>
@@ -671,7 +671,7 @@ const CalendarBlocks = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:from-pink-600 hover:to-purple-700"
                   >
                     {editingBlock ? 'Update Block' : 'Create Block'}
                   </button>
@@ -745,7 +745,7 @@ const CalendarBlocks = () => {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowAffectedModal(false)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:from-pink-600 hover:to-purple-700"
                 >
                   Close
                 </button>

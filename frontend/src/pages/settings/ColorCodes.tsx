@@ -112,7 +112,7 @@ const ColorCodes = () => {
         </div>
         <button
           onClick={handleAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700"
         >
           <FiPlus size={20} />
           Add Color Code
@@ -176,7 +176,7 @@ const ColorCodes = () => {
             <p className="text-gray-500 mb-4">Create your first color code to get started</p>
             <button
               onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700"
             >
               <FiPlus size={20} />
               Add Color Code
@@ -267,7 +267,7 @@ const ColorCodes = () => {
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 flex items-center gap-2"
               >
                 <FiSave size={16} />
                 Save

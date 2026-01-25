@@ -87,8 +87,8 @@ const Layout = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between">
+      <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-10 h-20">
+        <div className="px-4 h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -97,7 +97,7 @@ const Layout = () => {
               <FiMenu size={24} />
             </button>
             <div className="flex items-center">
-              <img src={logo} alt="HerHealth" className="h-14 w-auto" />
+              <img src={logo} alt="HerHealth" className="h-16 w-auto" />
             </div>
           </div>
           
@@ -122,10 +122,10 @@ const Layout = () => {
         </div>
       </header>
 
-      <div className="flex pt-16">
+      <div className="flex pt-20">
         {/* Sidebar */}
         <aside
-          className={`fixed left-0 top-16 bottom-0 bg-white border-r border-gray-200 transition-all duration-300 ${
+          className={`fixed left-0 top-20 bottom-0 bg-white border-r border-gray-200 transition-all duration-300 ${
             sidebarOpen ? 'w-64' : 'w-0'
           } overflow-hidden`}
         >
@@ -142,7 +142,7 @@ const Layout = () => {
                       onClick={() => toggleMenu(item.path)}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                         isActive(item.path)
-                          ? 'bg-blue-50 text-blue-600 font-medium'
+                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium shadow-sm'
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
                     >
@@ -154,7 +154,7 @@ const Layout = () => {
                       to={item.path}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                         isActive(item.path)
-                          ? 'bg-blue-50 text-blue-600 font-medium'
+                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium shadow-sm'
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
                     >
@@ -170,7 +170,7 @@ const Layout = () => {
                           to={subItem.path}
                           className={`block px-4 py-2 text-sm rounded-lg transition ${
                             location.pathname === subItem.path
-                              ? 'bg-blue-100 text-blue-600 font-medium'
+                              ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white font-medium shadow-sm'
                               : 'text-gray-600 hover:bg-gray-50'
                           }`}
                         >

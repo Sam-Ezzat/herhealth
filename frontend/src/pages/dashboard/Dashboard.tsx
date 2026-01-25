@@ -163,7 +163,7 @@ const Dashboard = () => {
         
         <button
           onClick={handleOpenModal}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition transform hover:scale-105"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 shadow-md hover:shadow-lg transition transform hover:scale-105"
         >
           <FiCalendar size={20} />
           <span className="font-semibold">Quick Appointment</span>

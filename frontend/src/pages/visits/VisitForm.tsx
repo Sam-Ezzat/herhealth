@@ -530,7 +530,7 @@ const VisitForm = () => {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition disabled:opacity-50"
             >
               <FiSave />
               {loading ? 'Saving...' : isEditMode ? 'Update Visit' : 'Save Visit'}

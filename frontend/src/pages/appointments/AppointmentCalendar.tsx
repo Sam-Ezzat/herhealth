@@ -734,7 +734,7 @@ const AppointmentCalendar = () => {
         </div>
         <button
           onClick={() => navigate('/appointments/new')}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 transition"
         >
           <FiPlus /> Schedule Appointment
         </button>
@@ -765,7 +765,7 @@ const AppointmentCalendar = () => {
             <button
               onClick={() => setView('month')}
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg font-medium transition-all ${
-                view === 'month' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                view === 'month' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Month
@@ -773,7 +773,7 @@ const AppointmentCalendar = () => {
             <button
               onClick={() => setView('week')}
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg font-medium transition-all ${
-                view === 'week' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                view === 'week' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Week
@@ -781,7 +781,7 @@ const AppointmentCalendar = () => {
             <button
               onClick={() => setView('day')}
               className={`flex-1 md:flex-none px-4 py-2 rounded-lg font-medium transition-all ${
-                view === 'day' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                view === 'day' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               Day
@@ -1146,7 +1146,7 @@ const AppointmentCalendar = () => {
                             title={isBlocked ? `Blocked: ${blockReason || 'Time unavailable'}` : (slot.available ? 'Available' : 'Booked')}
                             className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
                               formData.start_at.split('T')[1]?.startsWith(slot.time)
-                                ? 'bg-blue-600 text-white ring-2 ring-blue-600 ring-offset-2'
+                                ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white ring-2 ring-purple-500 ring-offset-2'
                                 : isBlocked
                                 ? 'bg-red-100 text-red-400 cursor-not-allowed line-through'
                                 : slot.available
@@ -1254,7 +1254,7 @@ const AppointmentCalendar = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md hover:from-pink-600 hover:to-purple-700 transition-colors"
                   >
                     <FiSave size={16} />
                     {modalMode === 'create' ? 'Create' : 'Save Changes'}
