@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, momentLocalizer, View } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -55,6 +55,7 @@ interface TimeSlot {
 
 const AppointmentCalendar = () => {
   const navigate = useNavigate();
+  const patientDropdownRef = useRef<HTMLDivElement>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -65,6 +66,8 @@ const AppointmentCalendar = () => {
   const [date, setDate] = useState(new Date());
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [minTime, setMinTime] = useState(new Date(2024, 0, 1, 10, 0, 0)); // Default 10:00 AM
+  const [maxTime, setMaxTime] = useState(new Date(2024, 0, 1, 23, 0, 0)); // Default 11:00 PM
   
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -74,6 +77,8 @@ const AppointmentCalendar = () => {
   const [selectedPatientColorCode, setSelectedPatientColorCode] = useState<string>('');
   const [doctorCalendars, setDoctorCalendars] = useState<any[]>([]);
   const [loadingCalendars, setLoadingCalendars] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [formData, setFormData] = useState({
     patient_id: '',
     doctor_id: '',
@@ -194,6 +199,119 @@ const AppointmentCalendar = () => {
     }
   };
 
+  const loadDoctorWorkingHours = async (doctorId: string) => {
+    try {
+      // Get all calendars for the doctor
+      const response = await api.get<any>(`/calendars/doctor/${doctorId}/all`);
+      const calendars = response.data?.data || response.data || [];
+      
+      console.log('Doctor calendars response:', calendars);
+      
+      if (!calendars || calendars.length === 0) {
+        console.log('No calendars found, using defaults');
+        setMinTime(new Date(2024, 0, 1, 10, 0, 0)); // 10:00 AM
+        setMaxTime(new Date(2024, 0, 1, 23, 0, 0)); // 11:00 PM
+        return;
+      }
+      
+      // Find earliest start time and latest end time across all calendars
+      let earliestHour = 23;
+      let earliestMinute = 59;
+      let latestHour = 0;
+      let latestMinute = 0;
+      let foundSlots = false;
+      
+      calendars.forEach((calendar: any) => {
+        console.log('Processing full calendar object:', calendar);
+        
+        // Check for working hours in various possible locations
+        const workingHours = calendar.working_hours || calendar.workingHours || [];
+        console.log('Working hours found:', workingHours);
+        
+        // Process working hours if available
+        if (workingHours && Array.isArray(workingHours) && workingHours.length > 0) {
+          workingHours.forEach((daySchedule: any) => {
+            console.log('Processing day schedule:', daySchedule);
+            
+            // Parse start time
+            if (daySchedule.start_time) {
+              const startParts = daySchedule.start_time.split(':');
+              const startHour = parseInt(startParts[0], 10);
+              const startMinute = parseInt(startParts[1] || '0', 10);
+              
+              if (!isNaN(startHour) && !isNaN(startMinute)) {
+                foundSlots = true;
+                if (startHour < earliestHour || (startHour === earliestHour && startMinute < earliestMinute)) {
+                  earliestHour = startHour;
+                  earliestMinute = startMinute;
+                  console.log('Updated earliest:', earliestHour, earliestMinute);
+                }
+              }
+            }
+            
+            // Parse end time
+            if (daySchedule.end_time) {
+              const endParts = daySchedule.end_time.split(':');
+              const endHour = parseInt(endParts[0], 10);
+              const endMinute = parseInt(endParts[1] || '0', 10);
+              
+              if (!isNaN(endHour) && !isNaN(endMinute)) {
+                if (endHour > latestHour || (endHour === latestHour && endMinute > latestMinute)) {
+                  latestHour = endHour;
+                  latestMinute = endMinute;
+                  console.log('Updated latest:', latestHour, latestMinute);
+                }
+              }
+            }
+          });
+        }
+      });
+      
+      console.log('Found slots:', foundSlots, 'Earliest:', earliestHour, earliestMinute, 'Latest:', latestHour, latestMinute);
+      
+      // If no valid slots found, use defaults
+      if (!foundSlots || earliestHour === 23) {
+        console.log('No valid slots found, using defaults');
+        setMinTime(new Date(2024, 0, 1, 10, 0, 0)); // 10:00 AM
+        setMaxTime(new Date(2024, 0, 1, 23, 0, 0)); // 11:00 PM
+        return;
+      }
+      
+      // Use actual working hours with minimal adjustment
+      // Just add 1 hour after the latest end time for padding
+      const minHour = Math.max(0, earliestHour);
+      const maxHour = Math.min(23, latestHour === 23 ? 23 : latestHour + 1);
+      
+      // Ensure we have at least a 2-hour window for the calendar
+      let finalMaxHour = maxHour;
+      if (finalMaxHour - minHour < 2) {
+        finalMaxHour = Math.min(23, minHour + 2);
+      }
+      
+      const newMinTime = new Date(2024, 0, 1, minHour, earliestMinute, 0);
+      const newMaxTime = new Date(2024, 0, 1, finalMaxHour, latestMinute, 0);
+      
+      console.log('Setting calendar hours:', newMinTime.toLocaleTimeString(), 'to', newMaxTime.toLocaleTimeString());
+      
+      // Final validation: ensure max is after min
+      if (newMaxTime <= newMinTime) {
+        console.log('Invalid time range, using defaults');
+        setMinTime(new Date(2024, 0, 1, 10, 0, 0));
+        setMaxTime(new Date(2024, 0, 1, 23, 0, 0));
+        return;
+      }
+      
+      setMinTime(newMinTime);
+      setMaxTime(newMaxTime);
+      
+    } catch (error) {
+      console.error('Error loading doctor working hours:', error);
+      // Set default hours on error
+      setMinTime(new Date(2024, 0, 1, 10, 0, 0));
+      setMaxTime(new Date(2024, 0, 1, 23, 0, 0));
+    }
+  };
+
   const loadAvailableTimeSlots = async (appointmentDate: string) => {
     setLoadingSlots(true);
     try {
@@ -244,7 +362,30 @@ const AppointmentCalendar = () => {
     loadColorCodes();
     loadAppointments();
     loadCalendarBlocks();
+    
+    // Load working hours when doctor selection changes
+    if (selectedDoctor) {
+      loadDoctorWorkingHours(selectedDoctor);
+    } else {
+      // Reset to default hours when no doctor selected
+      setMinTime(new Date(2024, 0, 1, 10, 0, 0)); // 10:00 AM
+      setMaxTime(new Date(2024, 0, 1, 23, 0, 0)); // 11:00 PM
+    }
   }, [selectedDoctor]);
+
+  // Close patient dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (patientDropdownRef.current && !patientDropdownRef.current.contains(event.target as Node)) {
+        setShowPatientDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if ((modalMode === 'create' || modalMode === 'edit') && formData.doctor_id && formData.start_at) {
@@ -364,6 +505,7 @@ const AppointmentCalendar = () => {
     setModalMode('create');
     setSelectedAppointment(null);
     setDoctorCalendars([]);
+    setPatientSearchQuery('');
     if (selectedDoctor) {
       loadDoctorCalendars(selectedDoctor);
     }
@@ -402,6 +544,7 @@ const AppointmentCalendar = () => {
     try {
       const patient = await patientService.getById(appointment.patient_id);
       setSelectedPatientColorCode(patient.color_code_id || '');
+      setPatientSearchQuery(`${patient.first_name} ${patient.last_name}`);
     } catch (error) {
       console.error('Error loading patient details:', error);
     }
@@ -679,6 +822,8 @@ const AppointmentCalendar = () => {
             step={15}
             timeslots={1}
             showMultiDayTimes
+            min={minTime}
+            max={maxTime}
           />
         )}
       </div>
@@ -705,34 +850,66 @@ const AppointmentCalendar = () => {
               <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Patient Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Patient */}
-                  <div>
+                  {/* Patient - Searchable */}
+                  <div className="relative" ref={patientDropdownRef}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Patient <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.patient_id}
-                      onChange={async (e) => {
-                        setFormData({ ...formData, patient_id: e.target.value });
-                        if (e.target.value) {
-                          try {
-                            const patient = await patientService.getById(e.target.value);
-                            setSelectedPatientColorCode(patient.color_code_id || '');
-                          } catch (error) {
-                            console.error('Error loading patient:', error);
-                          }
-                        }
+                    <input
+                      type="text"
+                      value={patientSearchQuery}
+                      onChange={(e) => {
+                        setPatientSearchQuery(e.target.value);
+                        setShowPatientDropdown(true);
                       }}
+                      onFocus={() => setShowPatientDropdown(true)}
+                      placeholder="Search patient by name..."
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Patient</option>
-                      {patients?.map((patient) => (
-                        <option key={patient.id} value={patient.id}>
-                          {patient.first_name} {patient.last_name}
-                        </option>
-                      ))}
-                    </select>
+                    />
+                    {showPatientDropdown && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {patients
+                          ?.filter((patient) => {
+                            const searchLower = patientSearchQuery.toLowerCase();
+                            const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+                            const phone = patient.phone_number?.toLowerCase() || '';
+                            return fullName.includes(searchLower) || phone.includes(searchLower);
+                          })
+                          .map((patient) => (
+                            <div
+                              key={patient.id}
+                              onClick={async () => {
+                                setFormData({ ...formData, patient_id: patient.id });
+                                setPatientSearchQuery(`${patient.first_name} ${patient.last_name}`);
+                                setShowPatientDropdown(false);
+                                try {
+                                  const patientDetails = await patientService.getById(patient.id);
+                                  setSelectedPatientColorCode(patientDetails.color_code_id || '');
+                                } catch (error) {
+                                  console.error('Error loading patient:', error);
+                                }
+                              }}
+                              className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="font-medium text-gray-900">
+                                {patient.first_name} {patient.last_name}
+                              </div>
+                              {patient.phone_number && (
+                                <div className="text-xs text-gray-500">{patient.phone_number}</div>
+                              )}
+                            </div>
+                          ))}
+                        {patients?.filter((patient) => {
+                          const searchLower = patientSearchQuery.toLowerCase();
+                          const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+                          const phone = patient.phone_number?.toLowerCase() || '';
+                          return fullName.includes(searchLower) || phone.includes(searchLower);
+                        }).length === 0 && (
+                          <div className="px-3 py-2 text-gray-500 text-sm">No patients found</div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Patient Color Code */}
