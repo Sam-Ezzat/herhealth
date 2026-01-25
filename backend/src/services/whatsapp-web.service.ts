@@ -49,14 +49,29 @@ export const initializeWhatsAppWeb = async (): Promise<void> => {
       fs.mkdirSync(sessionPath, { recursive: true });
     }
 
+    let chromiumArgs: string[] = [];
+    let chromiumExecutablePath: string | undefined = process.env.PUPPETEER_EXECUTABLE_PATH;
+
+    if (process.env.NODE_ENV === 'production' && !chromiumExecutablePath) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const chromium = require('@sparticuz/chromium');
+        chromiumArgs = chromium.args || [];
+        chromiumExecutablePath = await chromium.executablePath();
+      } catch (chromiumError) {
+        console.warn('Chromium dependency not available, falling back to default Puppeteer behavior.');
+      }
+    }
+
     whatsappWeb.client = new Client({
       authStrategy: new LocalAuth({
         dataPath: sessionPath
       }),
       puppeteer: {
         headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+        executablePath: chromiumExecutablePath,
         args: [
+          ...chromiumArgs,
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
