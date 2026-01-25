@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import visitService, { PatientVisitSummary } from '../../services/visit.service';
 import { FiSearch, FiPlus, FiCalendar, FiFileText, FiHeart, FiUser } from 'react-icons/fi';
@@ -7,27 +8,33 @@ import { FiSearch, FiPlus, FiCalendar, FiFileText, FiHeart, FiUser } from 'react
 const VisitList = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [patientSummaries, setPatientSummaries] = useState<PatientVisitSummary[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
-    loadPatientSummaries();
-  }, [search, location.key]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
 
-  const loadPatientSummaries = async () => {
-    try {
-      setLoading(true);
-      const result = await visitService.getPatientSummaries(search || undefined);
-      setPatientSummaries(result || []);
-    } catch (error: any) {
-      console.error('Error loading patient summaries:', error);
-      toast.error(error.response?.data?.error || 'Failed to load patient visit records');
-      setPatientSummaries([]);
-    } finally {
-      setLoading(false);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [search]);
+
+  const {
+    data: patientSummaries = [],
+    isLoading,
+    isError,
+  } = useQuery<PatientVisitSummary[]>({
+    queryKey: ['visit-summaries', debouncedSearch, location.key],
+    queryFn: () => visitService.getPatientSummaries(debouncedSearch || undefined),
+  });
+
+  useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load patient visit records');
     }
-  };
+  }, [isError]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -75,7 +82,7 @@ const VisitList = () => {
 
       {/* Patient Cards */}
       <div className="space-y-4">
-        {loading ? (
+        {isLoading ? (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading patient records...</p>

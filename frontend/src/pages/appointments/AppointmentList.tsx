@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import appointmentService, { Appointment } from '../../services/appointment.service';
 import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiEye, FiCalendar, FiClock, FiArchive } from 'react-icons/fi';
@@ -8,9 +9,10 @@ import { formatTime, calculateDuration } from '../../utils/timeUtils';
 const AppointmentList = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -19,75 +21,85 @@ const AppointmentList = () => {
   const [activeTab, setActiveTab] = useState<'active' | 'archive'>('active');
 
   useEffect(() => {
-    loadAppointments();
-  }, [search, statusFilter, typeFilter, dateFrom, dateTo, location.key, activeTab]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
 
-  const loadAppointments = async () => {
-    try {
-      setLoading(true);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [search]);
+
+  const {
+    data: appointmentsData = [],
+    isLoading,
+    isError,
+  } = useQuery<Appointment[]>({
+    queryKey: ['appointments', debouncedSearch, statusFilter, typeFilter, dateFrom, dateTo, activeTab, location.key],
+    queryFn: async () => {
       const filters: any = {};
-      if (search) filters.search = search;
+      if (debouncedSearch) filters.search = debouncedSearch;
       if (statusFilter) filters.status = statusFilter;
       if (typeFilter) filters.type = typeFilter;
-      
-      // Set date filters based on active tab
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (activeTab === 'active') {
-        // Active: appointments from today onwards
         if (dateFrom) filters.date_from = dateFrom;
         if (dateTo) filters.date_to = dateTo;
       } else {
-        // Archive: appointments before today
         if (dateFrom) filters.date_from = dateFrom;
         if (dateTo) filters.date_to = dateTo;
       }
-      
+
       const result = await appointmentService.getAll(filters);
-      // Filter appointments based on tab
       let filteredAppointments = result || [];
-      
+
       if (activeTab === 'active') {
-        // Show appointments from today onwards
         filteredAppointments = filteredAppointments.filter(apt => 
           new Date(apt.start_at) >= today
         );
       } else {
-        // Show appointments before today
         filteredAppointments = filteredAppointments.filter(apt => 
           new Date(apt.start_at) < today
         );
       }
-      
-      // Sort by date and time
-      const sortedAppointments = filteredAppointments.sort((a, b) => {
+
+      return filteredAppointments.sort((a, b) => {
         const dateCompare = new Date(b.start_at).getTime() - new Date(a.start_at).getTime();
-        return activeTab === 'archive' ? dateCompare : -dateCompare; // Descending for archive, ascending for active
+        return activeTab === 'archive' ? dateCompare : -dateCompare;
       });
-      
-      setAppointments(sortedAppointments);
-    } catch (error: any) {
-      console.error('Error loading appointments:', error);
-      toast.error(error.response?.data?.error || 'Failed to load appointments');
-      setAppointments([]);
-    } finally {
-      setLoading(false);
+    },
+  });
+
+  useEffect(() => {
+    setAppointments(appointmentsData);
+  }, [appointmentsData]);
+
+  useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load appointments');
     }
-  };
+  }, [isError]);
+
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: (id: string) => appointmentService.delete(id),
+    onSuccess: () => {
+      toast.success('Appointment deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to delete appointment');
+    },
+  });
 
   const handleDelete = async (id: string, patientName: string) => {
     if (!window.confirm(`Are you sure you want to delete appointment for ${patientName}?`)) {
       return;
     }
 
-    try {
-      await appointmentService.delete(id);
-      toast.success('Appointment deleted successfully');
-      loadAppointments();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to delete appointment');
-    }
+    deleteAppointmentMutation.mutate(id);
   };
 
   const clearFilters = () => {
@@ -262,7 +274,7 @@ const AppointmentList = () => {
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
+        {isLoading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading appointments...</p>

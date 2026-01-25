@@ -4,8 +4,15 @@ import ApiResponse from '../utils/ApiResponse';
 
 export const getAllDoctors = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { search } = req.query;
-    const doctors = await doctorService.getAllDoctors(search as string);
+    const { search, page, limit } = req.query;
+    const pageNumber = Math.max(parseInt((page as string) || '1', 10), 1);
+    const limitNumber = Math.min(Math.max(parseInt((limit as string) || '50', 10), 1), 100);
+    const offset = (pageNumber - 1) * limitNumber;
+
+    const doctors = await doctorService.getAllDoctors(search as string, {
+      limit: limitNumber,
+      offset,
+    });
 
     res.json(ApiResponse.success(doctors, 'Doctors retrieved successfully'));
   } catch (error) {

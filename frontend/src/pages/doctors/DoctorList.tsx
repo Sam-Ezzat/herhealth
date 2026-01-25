@@ -1,43 +1,58 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import doctorService, { Doctor } from '../../services/doctor.service';
 import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
 
 const DoctorList = () => {
   const navigate = useNavigate();
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
-    loadDoctors();
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
   }, [search]);
 
-  const loadDoctors = async () => {
-    try {
-      setLoading(true);
-      const result = await doctorService.getAll(search || undefined);
-      setDoctors(result);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to load doctors');
-    } finally {
-      setLoading(false);
+  const {
+    data: doctors = [],
+    isLoading,
+    isError,
+  } = useQuery<Doctor[]>({
+    queryKey: ['doctors', debouncedSearch],
+    queryFn: () => doctorService.getAll(debouncedSearch || undefined),
+  });
+
+  useEffect(() => {
+    if (isError) {
+      toast.error('Failed to load doctors');
     }
-  };
+  }, [isError]);
+
+  const deleteDoctorMutation = useMutation({
+    mutationFn: (id: string) => doctorService.delete(id),
+    onSuccess: () => {
+      toast.success('Doctor deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['doctors'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to delete doctor');
+    },
+  });
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete Dr. ${name}?`)) {
       return;
     }
 
-    try {
-      await doctorService.delete(id);
-      toast.success('Doctor deleted successfully');
-      loadDoctors();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to delete doctor');
-    }
+    deleteDoctorMutation.mutate(id);
   };
 
   return (
@@ -71,7 +86,7 @@ const DoctorList = () => {
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
+        {isLoading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading doctors...</p>

@@ -12,10 +12,20 @@ export interface Doctor {
 }
 
 // Get all doctors with optional search
-export const findAllDoctors = async (searchTerm?: string) => {
+export const findAllDoctors = async (
+  searchTerm?: string,
+  options: { limit?: number; offset?: number } = {}
+) => {
   let sql = `
     SELECT 
-      p.*,
+      p.id,
+      p.first_name,
+      p.last_name,
+      p.specialty,
+      p.phone,
+      p.email,
+      p.user_id,
+      p.created_at,
       u.username,
       u.full_name as user_full_name
     FROM doctors p
@@ -37,6 +47,11 @@ export const findAllDoctors = async (searchTerm?: string) => {
 
   sql += ` ORDER BY p.last_name, p.first_name`;
 
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
+  params.push(limit, offset);
+  sql += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
   const result = await query(sql, params);
   return result.rows;
 };
@@ -45,7 +60,14 @@ export const findAllDoctors = async (searchTerm?: string) => {
 export const findDoctorById = async (id: string): Promise<Doctor | null> => {
   const sql = `
     SELECT 
-      p.*,
+      p.id,
+      p.first_name,
+      p.last_name,
+      p.specialty,
+      p.phone,
+      p.email,
+      p.user_id,
+      p.created_at,
       u.username,
       u.full_name as user_full_name
     FROM doctors p

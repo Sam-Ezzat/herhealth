@@ -55,7 +55,19 @@ export interface CalendarException {
 // Doctor Calendar CRUD
 export const findAllCalendars = async (): Promise<DoctorCalendar[]> => {
   const sql = `
-    SELECT dc.*, CONCAT(d.first_name, ' ', d.last_name) as doctor_name
+    SELECT 
+      dc.id,
+      dc.doctor_id,
+      dc.name,
+      dc.description,
+      dc.is_active,
+      dc.timezone,
+      dc.color_code,
+      dc.color_name,
+      dc.notes,
+      dc.created_at,
+      dc.updated_at,
+      CONCAT(d.first_name, ' ', d.last_name) as doctor_name
     FROM doctor_calendars dc
     JOIN doctors d ON dc.doctor_id = d.id
     WHERE dc.is_active = true
@@ -66,19 +78,65 @@ export const findAllCalendars = async (): Promise<DoctorCalendar[]> => {
 };
 
 export const findCalendarByDoctorId = async (doctorId: string): Promise<DoctorCalendar | null> => {
-  const sql = `SELECT * FROM doctor_calendars WHERE doctor_id = $1 AND is_active = true`;
+  const sql = `
+    SELECT 
+      id,
+      doctor_id,
+      name,
+      description,
+      is_active,
+      timezone,
+      color_code,
+      color_name,
+      notes,
+      created_at,
+      updated_at
+    FROM doctor_calendars 
+    WHERE doctor_id = $1 AND is_active = true
+  `;
   const result = await query(sql, [doctorId]);
   return result.rows[0] || null;
 };
 
 export const findCalendarsByDoctorId = async (doctorId: string): Promise<DoctorCalendar[]> => {
-  const sql = `SELECT * FROM doctor_calendars WHERE doctor_id = $1 AND is_active = true ORDER BY name`;
+  const sql = `
+    SELECT 
+      id,
+      doctor_id,
+      name,
+      description,
+      is_active,
+      timezone,
+      color_code,
+      color_name,
+      notes,
+      created_at,
+      updated_at
+    FROM doctor_calendars 
+    WHERE doctor_id = $1 AND is_active = true 
+    ORDER BY name
+  `;
   const result = await query(sql, [doctorId]);
   return result.rows;
 };
 
 export const findCalendarById = async (calendarId: string): Promise<DoctorCalendar | null> => {
-  const sql = `SELECT * FROM doctor_calendars WHERE id = $1`;
+  const sql = `
+    SELECT 
+      id,
+      doctor_id,
+      name,
+      description,
+      is_active,
+      timezone,
+      color_code,
+      color_name,
+      notes,
+      created_at,
+      updated_at
+    FROM doctor_calendars 
+    WHERE id = $1
+  `;
   const result = await query(sql, [calendarId]);
   return result.rows[0] || null;
 };
@@ -89,7 +147,7 @@ export const createDoctorCalendar = async (calendarData: Omit<DoctorCalendar, 'i
   const sql = `
     INSERT INTO doctor_calendars (doctor_id, name, description, is_active, timezone, color_code, color_name, notes)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *
+    RETURNING id, doctor_id, name, description, is_active, timezone, color_code, color_name, notes, created_at, updated_at
   `;
   
   const result = await query(sql, [
@@ -126,7 +184,7 @@ export const updateDoctorCalendar = async (id: string, calendarData: Partial<Doc
     UPDATE doctor_calendars
     SET ${fields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING *
+    RETURNING id, doctor_id, name, description, is_active, timezone, color_code, color_name, notes, created_at, updated_at
   `;
   values.push(id);
 
@@ -136,7 +194,21 @@ export const updateDoctorCalendar = async (id: string, calendarData: Partial<Doc
 
 // Working Hours CRUD
 export const findWorkingHoursByCalendarId = async (calendarId: string): Promise<DoctorWorkingHours[]> => {
-  const sql = `SELECT * FROM doctor_working_hours WHERE calendar_id = $1 ORDER BY day_of_week, start_time`;
+  const sql = `
+    SELECT 
+      id,
+      calendar_id,
+      day_of_week,
+      start_time,
+      end_time,
+      is_active,
+      is_closed,
+      created_at,
+      updated_at
+    FROM doctor_working_hours 
+    WHERE calendar_id = $1 
+    ORDER BY day_of_week, start_time
+  `;
   const result = await query(sql, [calendarId]);
   return result.rows;
 };
@@ -147,7 +219,7 @@ export const createWorkingHours = async (hoursData: Omit<DoctorWorkingHours, 'id
   const sql = `
     INSERT INTO doctor_working_hours (calendar_id, day_of_week, start_time, end_time, is_active, is_closed)
     VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *
+    RETURNING id, calendar_id, day_of_week, start_time, end_time, is_active, is_closed, created_at, updated_at
   `;
   
   const result = await query(sql, [calendar_id, day_of_week, start_time, end_time, is_active, is_closed || false]);
@@ -175,7 +247,7 @@ export const updateWorkingHours = async (id: string, hoursData: Partial<DoctorWo
     UPDATE doctor_working_hours
     SET ${fields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING *
+    RETURNING id, calendar_id, day_of_week, start_time, end_time, is_active, is_closed, created_at, updated_at
   `;
   values.push(id);
 
@@ -191,7 +263,19 @@ export const deleteWorkingHours = async (id: string): Promise<boolean> => {
 
 // Time Slots CRUD
 export const findTimeSlotsByCalendarId = async (calendarId: string): Promise<DoctorTimeSlot[]> => {
-  const sql = `SELECT * FROM doctor_time_slots WHERE calendar_id = $1 AND is_active = true`;
+  const sql = `
+    SELECT 
+      id,
+      calendar_id,
+      slot_duration,
+      break_duration,
+      max_appointments_per_slot,
+      is_active,
+      created_at,
+      updated_at
+    FROM doctor_time_slots 
+    WHERE calendar_id = $1 AND is_active = true
+  `;
   const result = await query(sql, [calendarId]);
   return result.rows;
 };
@@ -202,7 +286,7 @@ export const createTimeSlot = async (slotData: Omit<DoctorTimeSlot, 'id' | 'crea
   const sql = `
     INSERT INTO doctor_time_slots (calendar_id, slot_duration, break_duration, max_appointments_per_slot, is_active)
     VALUES ($1, $2, $3, $4, $5)
-    RETURNING *
+    RETURNING id, calendar_id, slot_duration, break_duration, max_appointments_per_slot, is_active, created_at, updated_at
   `;
   
   const result = await query(sql, [calendar_id, slot_duration, break_duration, max_appointments_per_slot, is_active]);
@@ -230,7 +314,7 @@ export const updateTimeSlot = async (id: string, slotData: Partial<DoctorTimeSlo
     UPDATE doctor_time_slots
     SET ${fields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING *
+    RETURNING id, calendar_id, slot_duration, break_duration, max_appointments_per_slot, is_active, created_at, updated_at
   `;
   values.push(id);
 
@@ -240,7 +324,22 @@ export const updateTimeSlot = async (id: string, slotData: Partial<DoctorTimeSlo
 
 // Calendar Exceptions CRUD
 export const findExceptionsByCalendarId = async (calendarId: string, startDate?: Date, endDate?: Date): Promise<CalendarException[]> => {
-  let sql = `SELECT * FROM calendar_exceptions WHERE calendar_id = $1`;
+  let sql = `
+    SELECT 
+      id,
+      calendar_id,
+      exception_type,
+      start_datetime,
+      end_datetime,
+      reason,
+      cancel_appointments,
+      notify_patients,
+      created_by,
+      created_at,
+      updated_at
+    FROM calendar_exceptions 
+    WHERE calendar_id = $1
+  `;
   const params: any[] = [calendarId];
 
   if (startDate && endDate) {
@@ -263,7 +362,7 @@ export const createException = async (exceptionData: Omit<CalendarException, 'id
       cancel_appointments, notify_patients, created_by
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *
+    RETURNING id, calendar_id, exception_type, start_datetime, end_datetime, reason, cancel_appointments, notify_patients, created_by, created_at, updated_at
   `;
   
   const result = await query(sql, [
@@ -295,7 +394,7 @@ export const updateException = async (id: string, exceptionData: Partial<Calenda
     UPDATE calendar_exceptions
     SET ${fields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING *
+    RETURNING id, calendar_id, exception_type, start_datetime, end_datetime, reason, cancel_appointments, notify_patients, created_by, created_at, updated_at
   `;
   values.push(id);
 
@@ -312,7 +411,20 @@ export const deleteException = async (id: string): Promise<boolean> => {
 // Get appointments affected by exception
 export const findAffectedAppointments = async (calendarId: string, startDatetime: Date, endDatetime: Date): Promise<any[]> => {
   const sql = `
-    SELECT a.* 
+    SELECT 
+      a.id,
+      a.patient_id,
+      a.doctor_id,
+      a.calendar_id,
+      a.start_at,
+      a.end_at,
+      a.type,
+      a.status,
+      a.reservation_type,
+      a.notes,
+      a.created_by,
+      a.created_at,
+      a.updated_at
     FROM appointments a
     JOIN doctor_calendars dc ON a.doctor_id = dc.doctor_id
     WHERE dc.id = $1

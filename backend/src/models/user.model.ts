@@ -21,7 +21,18 @@ export interface Role {
 
 export const findUserByUsername = async (username: string): Promise<User | null> => {
   const result = await query(
-    `SELECT u.*, r.name as role_name, r.permissions 
+    `SELECT 
+      u.id,
+      u.username,
+      u.password_hash,
+      u.full_name,
+      u.role_id,
+      u.email,
+      u.phone,
+      u.created_at,
+      u.updated_at,
+      r.name as role_name,
+      r.permissions
      FROM users u 
      LEFT JOIN roles r ON u.role_id = r.id 
      WHERE u.username = $1`,
@@ -33,7 +44,18 @@ export const findUserByUsername = async (username: string): Promise<User | null>
 
 export const findUserById = async (id: string): Promise<User | null> => {
   const result = await query(
-    `SELECT u.*, r.name as role_name, r.permissions 
+    `SELECT 
+      u.id,
+      u.username,
+      u.password_hash,
+      u.full_name,
+      u.role_id,
+      u.email,
+      u.phone,
+      u.created_at,
+      u.updated_at,
+      r.name as role_name,
+      r.permissions
      FROM users u 
      LEFT JOIN roles r ON u.role_id = r.id 
      WHERE u.id = $1`,
@@ -54,7 +76,7 @@ export const createUser = async (
   const result = await query(
     `INSERT INTO users (username, password_hash, full_name, role_id, email, phone) 
      VALUES ($1, $2, $3, $4, $5, $6) 
-     RETURNING *`,
+     RETURNING id, username, password_hash, full_name, role_id, email, phone, created_at, updated_at`,
     [username, passwordHash, fullName, roleId, email, phone]
   );
 
@@ -81,7 +103,7 @@ export const updateUser = async (
   values.push(id);
 
   const result = await query(
-    `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+    `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING id, username, password_hash, full_name, role_id, email, phone, created_at, updated_at`,
     values
   );
 
@@ -89,16 +111,16 @@ export const updateUser = async (
 };
 
 export const findRoleById = async (id: string): Promise<Role | null> => {
-  const result = await query('SELECT * FROM roles WHERE id = $1', [id]);
+  const result = await query('SELECT id, name, permissions, created_at FROM roles WHERE id = $1', [id]);
   return result.rows.length > 0 ? result.rows[0] : null;
 };
 
 export const findRoleByName = async (name: string): Promise<Role | null> => {
-  const result = await query('SELECT * FROM roles WHERE name = $1', [name]);
+  const result = await query('SELECT id, name, permissions, created_at FROM roles WHERE name = $1', [name]);
   return result.rows.length > 0 ? result.rows[0] : null;
 };
 
 export const getAllRoles = async (): Promise<Role[]> => {
-  const result = await query('SELECT * FROM roles ORDER BY name');
+  const result = await query('SELECT id, name, permissions, created_at FROM roles ORDER BY name');
   return result.rows;
 };

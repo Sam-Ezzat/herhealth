@@ -1,89 +1,96 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
-import patientService, { Patient, ColorCode } from '../../services/patient.service';
+import patientService, { ColorCode, PatientsResponse } from '../../services/patient.service';
 import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
 
 const PatientList = () => {
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [colorCodes, setColorCodes] = useState<ColorCode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [total, setTotal] = useState(0);
   
   // Filter states
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [colorCodeFilter, setColorCodeFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(10);
 
   useEffect(() => {
-    loadColorCodes();
-  }, []);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
 
-  useEffect(() => {
-    loadPatients();
-  }, [search, colorCodeFilter, currentPage]);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [search]);
 
-  const loadColorCodes = async () => {
-    try {
-      const codes = await patientService.getColorCodes();
-      setColorCodes(codes);
-    } catch (error: any) {
-      console.error('Failed to load color codes:', error);
-    }
-  };
+  const {
+    data: colorCodes = [],
+    isError: isColorCodesError,
+  } = useQuery<ColorCode[]>({
+    queryKey: ['patients', 'color-codes'],
+    queryFn: () => patientService.getColorCodes(),
+    staleTime: 5 * 60_000,
+  });
 
-  const loadPatients = async () => {
-    try {
-      setLoading(true);
+  const {
+    data: patientsResponse,
+    isLoading,
+    isError: isPatientsError,
+  } = useQuery<PatientsResponse>({
+    queryKey: ['patients', debouncedSearch, colorCodeFilter, currentPage, limit],
+    queryFn: () => {
       const offset = (currentPage - 1) * limit;
-      const result = await patientService.getAll({
-        search: search || undefined,
+      return patientService.getAll({
+        search: debouncedSearch || undefined,
         colorCodeId: colorCodeFilter ? Number(colorCodeFilter) : undefined,
         limit,
         offset,
       });
-      
-      // Handle response structure
-      if (result && typeof result === 'object') {
-        if ('patients' in result && 'total' in result) {
-          setPatients(result.patients || []);
-          setTotal(result.total || 0);
-        } else {
-          console.error('Unexpected response structure:', result);
-          toast.error('Invalid response format from server');
-          setPatients([]);
-          setTotal(0);
-        }
-      } else {
-        console.error('Invalid response:', result);
-        toast.error('Invalid response from server');
-        setPatients([]);
-        setTotal(0);
-      }
-    } catch (error: any) {
-      console.error('Error loading patients:', error);
-      toast.error(error.response?.data?.error || error.message || 'Failed to load patients');
-      setPatients([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
+    },
+    placeholderData: keepPreviousData,
+  });
+
+  const patients = patientsResponse?.patients || [];
+
+  useEffect(() => {
+    if (patientsResponse && typeof patientsResponse.total === 'number') {
+      setTotal(patientsResponse.total);
     }
-  };
+  }, [patientsResponse]);
+
+  useEffect(() => {
+    if (isPatientsError) {
+      toast.error('Failed to load patients');
+    }
+  }, [isPatientsError]);
+
+  useEffect(() => {
+    if (isColorCodesError) {
+      toast.error('Failed to load color codes');
+    }
+  }, [isColorCodesError]);
+
+  const deletePatientMutation = useMutation({
+    mutationFn: (id: string) => patientService.delete(id),
+    onSuccess: () => {
+      toast.success('Patient deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to delete patient');
+    },
+  });
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) {
       return;
     }
 
-    try {
-      await patientService.delete(id);
-      toast.success('Patient deleted successfully');
-      loadPatients();
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to delete patient');
-    }
+    deletePatientMutation.mutate(id);
   };
 
   const handleSearchChange = (value: string) => {
@@ -93,7 +100,6 @@ const PatientList = () => {
 
   const handleFilterChange = () => {
     setCurrentPage(1);
-    loadPatients();
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -170,7 +176,7 @@ const PatientList = () => {
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {loading ? (
+        {isLoading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Loading patients...</p>

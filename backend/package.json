@@ -28,6 +28,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "@upstash/redis": "^1.36.1",
     "axios": "^1.13.2",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
@@ -42,7 +44,8 @@
     "pg": "^8.11.3",
     "qrcode-terminal": "^0.12.0",
     "uuid": "^9.0.1",
-    "whatsapp-web.js": "^1.34.2"
+    "whatsapp-web.js": "^1.34.2",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -55,6 +58,7 @@
     "@types/pg": "^8.10.9",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/uuid": "^9.0.7",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^6.16.0",
     "@typescript-eslint/parser": "^6.16.0",
     "autoprefixer": "^10.4.22",

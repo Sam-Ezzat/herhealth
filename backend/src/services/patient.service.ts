@@ -1,8 +1,30 @@
 import * as PatientModel from '../models/patient.model';
 import ApiError from '../utils/ApiError';
+import { deleteCache, getCache, setCache } from '../utils/cache';
+
+const PATIENTS_CACHE_TTL_SECONDS = 60;
+const PATIENTS_LIST_CACHE_KEY = 'patients:list:all';
+const PATIENTS_STATS_CACHE_KEY = 'patients:stats';
+const PATIENTS_COLOR_CODES_CACHE_KEY = 'patients:color-codes';
+
+const shouldCachePatientsList = (params: PatientModel.PatientSearchParams) => {
+  const { search, gender, colorCodeId, minAge, maxAge, offset } = params;
+  return !search && !gender && !colorCodeId && minAge === undefined && maxAge === undefined && (offset ?? 0) === 0;
+};
 
 export const getAllPatients = async (params: PatientModel.PatientSearchParams) => {
-  return await PatientModel.findAllPatients(params);
+  if (shouldCachePatientsList(params)) {
+    const cached = await getCache<{ patients: PatientModel.PatientWithColorCode[]; total: number }>(PATIENTS_LIST_CACHE_KEY);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const result = await PatientModel.findAllPatients(params);
+  if (shouldCachePatientsList(params)) {
+    await setCache(PATIENTS_LIST_CACHE_KEY, result, PATIENTS_CACHE_TTL_SECONDS);
+  }
+  return result;
 };
 
 export const getPatientById = async (id: string) => {
@@ -32,7 +54,10 @@ export const createPatient = async (
     throw ApiError.badRequest('Date of birth cannot be in the future');
   }
 
-  return await PatientModel.createPatient(patientData);
+  const patient = await PatientModel.createPatient(patientData);
+  await deleteCache(PATIENTS_LIST_CACHE_KEY);
+  await deleteCache(PATIENTS_STATS_CACHE_KEY);
+  return patient;
 };
 
 export const updatePatient = async (
@@ -69,6 +94,8 @@ export const updatePatient = async (
     throw ApiError.notFound('Patient not found');
   }
 
+  await deleteCache(PATIENTS_LIST_CACHE_KEY);
+  await deleteCache(PATIENTS_STATS_CACHE_KEY);
   return updatedPatient;
 };
 
@@ -86,13 +113,29 @@ export const deletePatient = async (id: string) => {
     throw ApiError.internal('Failed to delete patient');
   }
 
+  await deleteCache(PATIENTS_LIST_CACHE_KEY);
+  await deleteCache(PATIENTS_STATS_CACHE_KEY);
   return { message: 'Patient deleted successfully' };
 };
 
 export const getColorCodes = async () => {
-  return await PatientModel.getAllColorCodes();
+  const cached = await getCache<PatientModel.ColorCode[]>(PATIENTS_COLOR_CODES_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
+  const colorCodes = await PatientModel.getAllColorCodes();
+  await setCache(PATIENTS_COLOR_CODES_CACHE_KEY, colorCodes, PATIENTS_CACHE_TTL_SECONDS);
+  return colorCodes;
 };
 
 export const getPatientStatistics = async () => {
-  return await PatientModel.getPatientStats();
+  const cached = await getCache<Record<string, string | number>>(PATIENTS_STATS_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
+  const stats = await PatientModel.getPatientStats();
+  await setCache(PATIENTS_STATS_CACHE_KEY, stats, PATIENTS_CACHE_TTL_SECONDS);
+  return stats;
 };

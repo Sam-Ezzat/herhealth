@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
+    "@tanstack/react-query": "^5.90.20",
     "axios": "^1.6.5",
     "date-fns": "^3.6.0",
     "moment": "^2.30.1",

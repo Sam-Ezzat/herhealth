@@ -1,9 +1,30 @@
 import * as doctorModel from '../models/doctor.model';
 import { Doctor } from '../models/doctor.model';
 import ApiError from '../utils/ApiError';
+import { deleteCache, getCache, setCache } from '../utils/cache';
 
-export const getAllDoctors = async (search?: string) => {
-  return await doctorModel.findAllDoctors(search);
+const DOCTORS_CACHE_TTL_SECONDS = 60;
+const DOCTORS_LIST_CACHE_KEY = 'doctors:list:all';
+const DOCTORS_STATS_CACHE_KEY = 'doctors:stats';
+
+const shouldCacheDoctorsList = (search?: string, offset?: number) => !search && (offset ?? 0) === 0;
+
+export const getAllDoctors = async (
+  search?: string,
+  options: { limit?: number; offset?: number } = {}
+) => {
+  if (shouldCacheDoctorsList(search, options.offset)) {
+    const cached = await getCache<Doctor[]>(DOCTORS_LIST_CACHE_KEY);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const doctors = await doctorModel.findAllDoctors(search, options);
+  if (shouldCacheDoctorsList(search, options.offset)) {
+    await setCache(DOCTORS_LIST_CACHE_KEY, doctors, DOCTORS_CACHE_TTL_SECONDS);
+  }
+  return doctors;
 };
 
 export const getDoctorById = async (id: string) => {
@@ -19,7 +40,10 @@ export const getDoctorById = async (id: string) => {
 export const createDoctor = async (
   doctorData: Omit<Doctor, 'id' | 'created_at'>
 ) => {
-  return await doctorModel.createDoctor(doctorData);
+  const doctor = await doctorModel.createDoctor(doctorData);
+  await deleteCache(DOCTORS_LIST_CACHE_KEY);
+  await deleteCache(DOCTORS_STATS_CACHE_KEY);
+  return doctor;
 };
 
 export const updateDoctor = async (
@@ -32,7 +56,10 @@ export const updateDoctor = async (
     throw ApiError.notFound('Doctor not found');
   }
 
-  return await doctorModel.updateDoctor(id, doctorData);
+  const updated = await doctorModel.updateDoctor(id, doctorData);
+  await deleteCache(DOCTORS_LIST_CACHE_KEY);
+  await deleteCache(DOCTORS_STATS_CACHE_KEY);
+  return updated;
 };
 
 export const deleteDoctor = async (id: string) => {
@@ -48,9 +75,19 @@ export const deleteDoctor = async (id: string) => {
     throw ApiError.internal('Failed to delete doctor');
   }
 
+  await deleteCache(DOCTORS_LIST_CACHE_KEY);
+  await deleteCache(DOCTORS_STATS_CACHE_KEY);
+
   return true;
 };
 
 export const getDoctorStatistics = async () => {
-  return await doctorModel.getDoctorStats();
+  const cached = await getCache<Record<string, string | number>>(DOCTORS_STATS_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
+  const stats = await doctorModel.getDoctorStats();
+  await setCache(DOCTORS_STATS_CACHE_KEY, stats, DOCTORS_CACHE_TTL_SECONDS);
+  return stats;
 };

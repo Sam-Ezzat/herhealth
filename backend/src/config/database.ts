@@ -1,9 +1,17 @@
-import { Pool, PoolConfig } from 'pg';
+import { Pool as NeonPool, PoolConfig as NeonPoolConfig, neonConfig, type PoolClient as NeonPoolClient } from '@neondatabase/serverless';
+import { Pool as PgPool, PoolConfig as PgPoolConfig, type PoolClient as PgPoolClient } from 'pg';
 import dotenv from 'dotenv';
+import WebSocket from 'ws';
 
 dotenv.config();
 
-const poolConfig: PoolConfig = process.env.DATABASE_URL
+const useNeon = Boolean(process.env.DATABASE_URL?.includes('neon.tech'));
+
+if (useNeon) {
+  neonConfig.webSocketConstructor = WebSocket;
+}
+
+const poolConfig: NeonPoolConfig | PgPoolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
       ssl: {
@@ -15,7 +23,7 @@ const poolConfig: PoolConfig = process.env.DATABASE_URL
     }
   : {
       host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
+      port: parseInt(process.env.DB_PORT || '5432', 10),
       database: process.env.DB_NAME || 'obgyn_clinic',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || '',
@@ -24,22 +32,26 @@ const poolConfig: PoolConfig = process.env.DATABASE_URL
       connectionTimeoutMillis: 2000,
     };
 
-const pool = new Pool(poolConfig);
+const pool: NeonPool | PgPool = useNeon
+  ? new NeonPool(poolConfig as NeonPoolConfig)
+  : new PgPool(poolConfig as PgPoolConfig);
 
 // Set timezone for the entire pool - this affects all connections
 // Important: Use PGTZ environment variable as backup
 process.env.PGTZ = 'Africa/Cairo';
 
-pool.on('connect', (client) => {
+type DbPoolClient = PgPoolClient | NeonPoolClient;
+
+pool.on('connect', (client: DbPoolClient) => {
   console.log('Database connected successfully');
   // Set timezone to Africa/Cairo (UTC+2) to match Egyptian local time
   // This ensures timestamps are interpreted correctly
-  client.query("SET timezone = 'Africa/Cairo'").catch(err => {
+  client.query("SET timezone = 'Africa/Cairo'").catch((err: Error) => {
     console.error('Failed to set timezone:', err);
   });
 });
 
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   console.error('Unexpected database error:', err);
   process.exit(-1);
 });

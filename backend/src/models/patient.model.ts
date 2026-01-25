@@ -36,6 +36,13 @@ export interface PatientWithColorCode extends Patient {
   color_code_hex?: string;
 }
 
+export interface ColorCode {
+  id: number;
+  color_name: string;
+  color_hex: string;
+  is_customizable?: boolean;
+}
+
 export interface PatientSearchParams {
   search?: string;
   gender?: string;
@@ -122,7 +129,34 @@ export const findAllPatients = async (
   // Get patients with color code info
   const patientsQuery = `
     SELECT 
-      p.*,
+      p.id,
+      p.first_name,
+      p.last_name,
+      p.date_of_birth,
+      p.gender,
+      p.phone,
+      p.email,
+      p.address,
+      p.emergency_contact_name,
+      p.emergency_contact_phone,
+      p.blood_type,
+      p.allergies,
+      p.chronic_conditions,
+      p.current_medications,
+      p.insurance_provider,
+      p.insurance_number,
+      p.color_code_id,
+      p.is_pregnant,
+      p.lmp,
+      p.edd,
+      p.pregnancy_status,
+      p.current_pregnancy_week,
+      p.gravida,
+      p.para,
+      p.abortion,
+      p.living,
+      p.created_at,
+      p.updated_at,
       cc.color_name as color_code_name,
       cc.color_hex as color_code_hex
     FROM patients p
@@ -147,7 +181,34 @@ export const findPatientById = async (
 ): Promise<PatientWithColorCode | null> => {
   const sql = `
     SELECT 
-      p.*,
+      p.id,
+      p.first_name,
+      p.last_name,
+      p.date_of_birth,
+      p.gender,
+      p.phone,
+      p.email,
+      p.address,
+      p.emergency_contact_name,
+      p.emergency_contact_phone,
+      p.blood_type,
+      p.allergies,
+      p.chronic_conditions,
+      p.current_medications,
+      p.insurance_provider,
+      p.insurance_number,
+      p.color_code_id,
+      p.is_pregnant,
+      p.lmp,
+      p.edd,
+      p.pregnancy_status,
+      p.current_pregnancy_week,
+      p.gravida,
+      p.para,
+      p.abortion,
+      p.living,
+      p.created_at,
+      p.updated_at,
       cc.color_name as color_code_name,
       cc.color_hex as color_code_hex
     FROM patients p
@@ -190,7 +251,11 @@ export const createPatient = async (
       is_pregnant
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-    RETURNING *
+    RETURNING id, first_name, last_name, date_of_birth, gender, phone, email, address,
+      emergency_contact_name, emergency_contact_phone, blood_type, allergies, chronic_conditions,
+      current_medications, insurance_provider, insurance_number, color_code_id, is_pregnant,
+      lmp, edd, pregnancy_status, current_pregnancy_week, gravida, para, abortion, living,
+      created_at, updated_at
   `;
 
   const values = [
@@ -246,7 +311,11 @@ export const updatePatient = async (
     UPDATE patients
     SET ${fields.join(', ')}
     WHERE id = $${paramIndex}
-    RETURNING *
+    RETURNING id, first_name, last_name, date_of_birth, gender, phone, email, address,
+      emergency_contact_name, emergency_contact_phone, blood_type, allergies, chronic_conditions,
+      current_medications, insurance_provider, insurance_number, color_code_id, is_pregnant,
+      lmp, edd, pregnancy_status, current_pregnancy_week, gravida, para, abortion, living,
+      created_at, updated_at
   `;
   values.push(id);
 
@@ -265,14 +334,51 @@ export const deletePatient = async (id: string): Promise<boolean> => {
 export const findPatientByPhone = async (
   phone: string
 ): Promise<Patient | null> => {
-  const sql = `SELECT * FROM patients WHERE phone = $1`;
+  const sql = `
+    SELECT 
+      id,
+      first_name,
+      last_name,
+      date_of_birth,
+      gender,
+      phone,
+      email,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+      blood_type,
+      allergies,
+      chronic_conditions,
+      current_medications,
+      insurance_provider,
+      insurance_number,
+      color_code_id,
+      is_pregnant,
+      lmp,
+      edd,
+      pregnancy_status,
+      current_pregnancy_week,
+      gravida,
+      para,
+      abortion,
+      living,
+      created_at,
+      updated_at
+    FROM patients 
+    WHERE phone = $1
+  `;
   const result = await query(sql, [phone]);
   return result.rows[0] || null;
 };
 
 // Get all color codes
 export const getAllColorCodes = async () => {
-  const sql = `SELECT * FROM color_code WHERE is_active = true ORDER BY color_name`;
+  const sql = `
+    SELECT id, color_name, color_hex, is_customizable
+    FROM color_code
+    WHERE is_active = true
+    ORDER BY color_name
+  `;
   const result = await query(sql);
   return result.rows;
 };
