@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { FiHome, FiUsers, FiCalendar, FiFileText, FiSettings, FiLogOut, FiMenu, FiUserPlus, FiClock, FiMessageSquare, FiUser, FiShield } from 'react-icons/fi';
+import { FiHome, FiUsers, FiCalendar, FiFileText, FiSettings, FiLogOut, FiMenu, FiUserPlus, FiMessageSquare, FiUser, FiShield } from 'react-icons/fi';
 import { useState } from 'react';
 
 const Layout = () => {
@@ -70,6 +70,7 @@ const Layout = () => {
       icon: FiSettings, 
       label: 'Settings',
       submenu: [
+        { path: '/settings/automations', label: 'Automations' },
         { path: '/settings/color-codes', label: 'Color Codes' }
       ]
     },

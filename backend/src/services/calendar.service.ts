@@ -1,6 +1,7 @@
 import * as CalendarModel from '../models/calendar.model';
 import * as AppointmentModel from '../models/appointment.model';
 import * as WhatsAppService from './whatsapp.service';
+import * as AppointmentService from './appointment.service';
 import ApiError from '../utils/ApiError';
 
 // Get all calendars with working hours and time slots
@@ -386,6 +387,75 @@ export const emergencyCancelRange = async (
   return {
     exception,
     cancellation: cancellationResult
+  };
+};
+
+export const bulkRescheduleRange = async (
+  calendarId: string,
+  startDatetime: Date,
+  endDatetime: Date,
+  method: 'offset' | 'set_time',
+  options: { offsetMinutes?: number; targetTime?: string; appointmentIds?: string[] },
+  notifyPatients: boolean
+): Promise<{ total: number; updated: number; failed: number; notified: number; failures: Array<{ id: string; error: string }> }> => {
+  const appointments = await CalendarModel.findAffectedAppointments(calendarId, startDatetime, endDatetime);
+  const selectedIds = options.appointmentIds && options.appointmentIds.length > 0
+    ? new Set(options.appointmentIds)
+    : null;
+  const filteredAppointments = selectedIds
+    ? appointments.filter((appointment) => selectedIds.has(appointment.id))
+    : appointments;
+  let updated = 0;
+  let failed = 0;
+  let notified = 0;
+  const failures: Array<{ id: string; error: string }> = [];
+
+  for (const appointment of filteredAppointments) {
+    try {
+      const oldStart = new Date(appointment.start_at);
+      const oldEnd = new Date(appointment.end_at);
+      const durationMs = oldEnd.getTime() - oldStart.getTime();
+      let newStart = new Date(oldStart);
+
+      if (method === 'offset') {
+        const offsetMinutes = options.offsetMinutes || 0;
+        newStart = new Date(oldStart.getTime() + offsetMinutes * 60000);
+      } else {
+        const targetTime = options.targetTime || '00:00';
+        const [hours, minutes] = targetTime.split(':').map(Number);
+        newStart.setHours(hours, minutes, 0, 0);
+      }
+
+      const newEnd = new Date(newStart.getTime() + durationMs);
+
+      await AppointmentService.updateAppointment(
+        appointment.id,
+        {
+          start_at: newStart,
+          end_at: newEnd
+        },
+        notifyPatients
+      );
+
+      updated++;
+      if (notifyPatients) {
+        notified++;
+      }
+    } catch (error: any) {
+      failed++;
+      failures.push({
+        id: appointment.id,
+        error: error?.message || 'Failed to reschedule appointment'
+      });
+    }
+  }
+
+  return {
+    total: filteredAppointments.length,
+    updated,
+    failed,
+    notified,
+    failures
   };
 };
 

@@ -424,9 +424,15 @@ export const findAffectedAppointments = async (calendarId: string, startDatetime
       a.notes,
       a.created_by,
       a.created_at,
-      a.updated_at
+      a.updated_at,
+      CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+      p.phone as patient_phone,
+      CONCAT(d.first_name, ' ', d.last_name) as doctor_name,
+      dc.name as calendar_name
     FROM appointments a
     JOIN doctor_calendars dc ON a.doctor_id = dc.doctor_id
+    LEFT JOIN patients p ON a.patient_id = p.id
+    LEFT JOIN doctors d ON a.doctor_id = d.id
     WHERE dc.id = $1
     AND a.start_at >= $2
     AND a.end_at <= $3

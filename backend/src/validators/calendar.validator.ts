@@ -132,3 +132,21 @@ export const updateTimeSlotSchema = Joi.object({
   max_appointments_per_slot: Joi.number().integer().min(1).max(10).optional(),
   is_active: Joi.boolean().optional()
 });
+
+export const bulkRescheduleSchema = Joi.object({
+  startDatetime: Joi.date().required(),
+  endDatetime: Joi.date().required(),
+  method: Joi.string().valid('offset', 'set_time').required(),
+  appointmentIds: Joi.array().items(Joi.string().uuid()).optional(),
+  offsetMinutes: Joi.when('method', {
+    is: 'offset',
+    then: Joi.number().integer().min(-720).max(720).required(),
+    otherwise: Joi.forbidden()
+  }),
+  targetTime: Joi.when('method', {
+    is: 'set_time',
+    then: Joi.string().pattern(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/).required(),
+    otherwise: Joi.forbidden()
+  }),
+  notifyPatients: Joi.boolean().default(true)
+});

@@ -377,3 +377,28 @@ export const emergencyCancelRange = async (req: Request, res: Response, next: Ne
     next(error);
   }
 };
+
+// Bulk reschedule range
+export const bulkRescheduleRange = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { calendarId } = req.params;
+    const { startDatetime, endDatetime, method, offsetMinutes, targetTime, notifyPatients, appointmentIds } = req.body;
+
+    const result = await CalendarService.bulkRescheduleRange(
+      calendarId,
+      new Date(startDatetime),
+      new Date(endDatetime),
+      method,
+      { offsetMinutes, targetTime, appointmentIds },
+      notifyPatients !== false
+    );
+
+    res.json({
+      success: true,
+      data: result,
+      message: `Bulk reschedule completed. ${result.updated} updated, ${result.failed} failed.`
+    });
+  } catch (error) {
+    next(error);
+  }
+};

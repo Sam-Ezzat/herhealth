@@ -9,7 +9,7 @@ import { DoctorList, DoctorForm, DoctorDetail } from './pages/doctors';
 import { AppointmentList, AppointmentForm, AppointmentDetail } from './pages/appointments';
 import AppointmentCalendar from './pages/appointments/AppointmentCalendar';
 import { VisitList, VisitForm, VisitDetail, PatientVisitHistory } from './pages/visits';
-import { DoctorCalendars, WhatsAppTemplates, WhatsAppSettings, WhatsAppMessages, RoleManagement, UserManagement } from './pages/settings';
+import { DoctorCalendars, WhatsAppTemplates, WhatsAppSettings, WhatsAppMessages, RoleManagement, UserManagement, Automations } from './pages/settings';
 import ColorCodes from './pages/settings/ColorCodes';
 import CalendarBlocks from './pages/settings/CalendarBlocks';
 import Profile from './pages/Profile';
@@ -91,6 +91,7 @@ function App() {
           <Route path="settings/whatsapp/templates" element={<WhatsAppTemplates />} />
           <Route path="settings/whatsapp/messages" element={<WhatsAppMessages />} />
           <Route path="settings/color-codes" element={<ColorCodes />} />
+          <Route path="settings/automations" element={<Automations />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

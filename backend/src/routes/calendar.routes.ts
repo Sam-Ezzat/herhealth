@@ -48,4 +48,12 @@ router.post('/:calendarId/block-time-range', authenticate, calendarController.bl
 // Emergency cancel range
 router.post('/:calendarId/emergency-cancel', authenticate, calendarController.emergencyCancelRange);
 
+// Bulk reschedule range
+router.post(
+	'/:calendarId/bulk-reschedule',
+	authenticate,
+	validate(calendarValidator.bulkRescheduleSchema),
+	calendarController.bulkRescheduleRange
+);
+
 export default router;
