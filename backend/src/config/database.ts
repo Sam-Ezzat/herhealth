@@ -26,6 +26,10 @@ const poolConfig: PoolConfig = process.env.DATABASE_URL
 
 const pool = new Pool(poolConfig);
 
+// Set timezone for the entire pool - this affects all connections
+// Important: Use PGTZ environment variable as backup
+process.env.PGTZ = 'Africa/Cairo';
+
 pool.on('connect', (client) => {
   console.log('Database connected successfully');
   // Set timezone to Africa/Cairo (UTC+2) to match Egyptian local time

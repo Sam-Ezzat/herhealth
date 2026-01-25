@@ -195,7 +195,7 @@ export const createAppointment = async (
     INSERT INTO appointments (
       patient_id, doctor_id, calendar_id, start_at, end_at, type, status, reservation_type, notes, created_by
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    VALUES ($1, $2, $3, $4::timestamp, $5::timestamp, $6, $7, $8, $9, $10)
     RETURNING *
   `;
 
@@ -203,7 +203,7 @@ export const createAppointment = async (
     patient_id,
     doctor_id,
     calendar_id || null,
-    start_at, // PostgreSQL will interpret this as local time if no timezone specified
+    start_at, // Cast to timestamp ensures it's treated as local time
     end_at,
     type,
     status || 'scheduled',
@@ -230,7 +230,12 @@ export const updateAppointment = async (
 
   Object.entries(appointmentData).forEach(([key, value]) => {
     if (key !== 'id' && key !== 'created_at' && key !== 'updated_at' && key !== 'patient_name' && key !== 'doctor_name' && key !== 'patient_phone') {
-      fields.push(`${key} = $${paramIndex}`);
+      // Cast timestamp fields explicitly to ensure correct interpretation
+      if (key === 'start_at' || key === 'end_at') {
+        fields.push(`${key} = $${paramIndex}::timestamp`);
+      } else {
+        fields.push(`${key} = $${paramIndex}`);
+      }
       values.push(value);
       paramIndex++;
     }
