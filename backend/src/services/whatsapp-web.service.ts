@@ -29,6 +29,15 @@ export const initializeWhatsAppWeb = async (): Promise<void> => {
     whatsappWeb.qrCode = null;
     whatsappWeb.isReady = false;
 
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.PUPPETEER_CACHE_DIR) {
+        process.env.PUPPETEER_CACHE_DIR = path.join('/tmp', 'puppeteer');
+      }
+      if (!process.env.PUPPETEER_TMP_DIR) {
+        process.env.PUPPETEER_TMP_DIR = '/tmp';
+      }
+    }
+
     // Create session directory if it doesn't exist
     // Use a writable path in production (serverless environments are often read-only)
     const sessionPath = process.env.WHATSAPP_WEB_AUTH_PATH
@@ -46,6 +55,7 @@ export const initializeWhatsAppWeb = async (): Promise<void> => {
       }),
       puppeteer: {
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
