@@ -255,8 +255,8 @@ const PatientForm = () => {
               />
               {errors.phone && <p className="mt-1 text-sm text-red-500">{errors.phone}</p>}
             </div>
-
-            <div>
+        {/* Email and address (temporarily hidden) */}
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <input
                 type="email"
@@ -279,8 +279,10 @@ const PatientForm = () => {
                 rows={2}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
+            </div> */}
 
+            {/* Blood Type (temporarily hidden) */}
+            {/*
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Blood Type</label>
               <select
@@ -300,16 +302,25 @@ const PatientForm = () => {
                 <option value="O-">O-</option>
               </select>
             </div>
+            */}
 
             <div className="flex items-center">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="is_pregnant"
-                  checked={formData.is_pregnant}
-                  onChange={handleChange}
-                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                />
+              <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    name="is_pregnant"
+                    checked={formData.is_pregnant}
+                    onChange={handleChange}
+                    className="sr-only peer"
+                  />
+                  <div className={`block h-6 w-11 rounded-full transition-colors duration-200 ${
+                    formData.is_pregnant ? 'bg-pink-500' : 'bg-gray-300'
+                  }`}></div>
+                  <div className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+                    formData.is_pregnant ? 'translate-x-5' : 'translate-x-0'
+                  }`}></div>
+                </div>
                 <span className="text-sm font-medium text-gray-700">Currently Pregnant</span>
               </label>
             </div>
@@ -347,7 +358,8 @@ const PatientForm = () => {
           </div>
         </div>
 
-        {/* Emergency Contact */}
+        {/* Emergency Contact (temporarily hidden) */}
+        {/*
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Emergency Contact</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -374,6 +386,7 @@ const PatientForm = () => {
             </div>
           </div>
         </div>
+        */}
 
         {/* General Notes */}
         <div className="mb-6">
@@ -391,7 +404,8 @@ const PatientForm = () => {
           </div>
         </div>
 
-        {/* Insurance Information */}
+        {/* Insurance Information (temporarily hidden) */}
+        {/*
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Insurance Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -418,6 +432,7 @@ const PatientForm = () => {
             </div>
           </div>
         </div>
+        */}
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t">
