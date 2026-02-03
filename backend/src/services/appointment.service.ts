@@ -26,6 +26,29 @@ export const createAppointment = async (
     throw new ApiError(400, 'Appointment start time cannot be in the past');
   }
 
+  // Ensure calendar_id is set - if not provided, get the doctor's default calendar
+  let calendarId = appointmentData.calendar_id;
+  if (!calendarId) {
+    const { query } = await import('../config/database');
+    const defaultCalendarResult = await query(
+      `SELECT id FROM doctor_calendars 
+       WHERE doctor_id = $1 AND is_active = true 
+       ORDER BY created_at ASC 
+       LIMIT 1`,
+      [appointmentData.doctor_id]
+    );
+    
+    if (defaultCalendarResult.rows.length > 0) {
+      calendarId = defaultCalendarResult.rows[0].id;
+      console.log(`Auto-assigned calendar ${calendarId} for doctor ${appointmentData.doctor_id}`);
+    } else {
+      throw new ApiError(400, 'No active calendar found for this doctor. Please create a calendar first.');
+    }
+  }
+
+  // Update appointmentData with the calendar_id
+  appointmentData.calendar_id = calendarId;
+
   // Check if patient already has an appointment on this date
   const appointmentDate = new Date(appointmentData.start_at).toISOString().split('T')[0];
   const existingAppointments = await appointmentModel.findAllAppointments({

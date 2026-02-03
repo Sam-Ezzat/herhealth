@@ -479,6 +479,31 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
     }
   }
 
+  const timeZone = calendar.timezone || 'UTC';
+  const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  const getMinutesInTimeZone = (d: Date) => {
+    const parts = timeFormatter.formatToParts(d);
+    const hour = Number(parts.find(p => p.type === 'hour')?.value || '0');
+    const minute = Number(parts.find(p => p.type === 'minute')?.value || '0');
+    return hour * 60 + minute;
+  };
+  const formatDateInTimeZone = (d: Date) => dateFormatter.format(d);
+  const parseTimeToMinutes = (time: string) => {
+    const [hour, minute] = time.split(':').map(Number);
+    return hour * 60 + minute;
+  };
+
   // Parse the date
   const targetDate = new Date(date);
   const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 6 = Saturday
@@ -502,10 +527,10 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
   const exceptionsResult = await dbQuery(
     `SELECT * FROM calendar_exceptions 
      WHERE calendar_id = $1 
-     AND DATE(start_datetime) <= $2 
-     AND DATE(end_datetime) >= $2
+     AND DATE(start_datetime AT TIME ZONE $3) <= $2 
+     AND DATE(end_datetime AT TIME ZONE $3) >= $2
      ORDER BY start_datetime`,
-    [calendar.id, date]
+    [calendar.id, date, timeZone]
   );
 
   // Get exceptions that affect specific time ranges
@@ -522,14 +547,16 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
   // Get existing appointments for this date and calendar
   // Filter by calendar_id to ensure appointments from different calendars don't affect each other
   const appointmentsResult = await dbQuery(
-    `SELECT start_at, end_at 
+    `SELECT start_at, end_at,
+            TO_CHAR(start_at AT TIME ZONE $4, 'HH24:MI') as start_local,
+            TO_CHAR(end_at AT TIME ZONE $4, 'HH24:MI') as end_local
      FROM appointments 
      WHERE doctor_id = $1 
-     AND DATE(start_at) = $2 
+     AND DATE(start_at AT TIME ZONE $4) = $2 
      AND (calendar_id = $3 OR calendar_id IS NULL)
      AND status NOT IN ('cancelled', 'no-show')
      ORDER BY start_at`,
-    [doctorId, date, calendar.id]
+    [doctorId, date, calendar.id, timeZone]
   );
 
   const existingAppointments = appointmentsResult.rows;
@@ -545,7 +572,7 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
 
   // Get current time to check for past slots
   const now = new Date();
-  const isToday = targetDate.toDateString() === now.toDateString();
+  const isToday = formatDateInTimeZone(now) === date;
 
   while (currentMinutes < endMinutes) {
     const slotStartMinutes = currentMinutes;
@@ -564,16 +591,14 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
     // Check if slot is in the past (only for today)
     let isPast = false;
     if (isToday) {
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const nowMinutes = getMinutesInTimeZone(now);
       isPast = slotEndMinutes <= nowMinutes;
     }
 
     // Check if slot conflicts with existing appointments
     const bookedCount = existingAppointments.filter((apt: any) => {
-      const aptStart = new Date(apt.start_at);
-      const aptEnd = new Date(apt.end_at);
-      const aptStartMinutes = aptStart.getHours() * 60 + aptStart.getMinutes();
-      const aptEndMinutes = aptEnd.getHours() * 60 + aptEnd.getMinutes();
+      const aptStartMinutes = parseTimeToMinutes(apt.start_local || '00:00');
+      const aptEndMinutes = parseTimeToMinutes(apt.end_local || '00:00');
       return (slotStartMinutes < aptEndMinutes && slotEndMinutes > aptStartMinutes);
     }).length;
 
@@ -585,9 +610,9 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
       const exceptionEnd = new Date(exception.end_datetime);
       
       // Get date-only parts for comparison (ignoring time)
-      const exceptionStartDateOnly = new Date(exceptionStart.getFullYear(), exceptionStart.getMonth(), exceptionStart.getDate());
-      const exceptionEndDateOnly = new Date(exceptionEnd.getFullYear(), exceptionEnd.getMonth(), exceptionEnd.getDate());
-      const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const exceptionStartDateOnly = formatDateInTimeZone(exceptionStart);
+      const exceptionEndDateOnly = formatDateInTimeZone(exceptionEnd);
+      const targetDateOnly = date;
       
       // Check if target date is within the exception date range
       const isInDateRange = targetDateOnly >= exceptionStartDateOnly && targetDateOnly <= exceptionEndDateOnly;
@@ -599,13 +624,13 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
       let effectiveEndMinutes = 24 * 60; // End of day (24:00)
       
       // If exception starts on this day, use the actual start time
-      if (targetDateOnly.getTime() === exceptionStartDateOnly.getTime()) {
-        effectiveStartMinutes = exceptionStart.getHours() * 60 + exceptionStart.getMinutes();
+      if (targetDateOnly === exceptionStartDateOnly) {
+        effectiveStartMinutes = getMinutesInTimeZone(exceptionStart);
       }
       
       // If exception ends on this day, use the actual end time
-      if (targetDateOnly.getTime() === exceptionEndDateOnly.getTime()) {
-        effectiveEndMinutes = exceptionEnd.getHours() * 60 + exceptionEnd.getMinutes();
+      if (targetDateOnly === exceptionEndDateOnly) {
+        effectiveEndMinutes = getMinutesInTimeZone(exceptionEnd);
       }
       
       // Check if this slot overlaps with the effective exception time range
