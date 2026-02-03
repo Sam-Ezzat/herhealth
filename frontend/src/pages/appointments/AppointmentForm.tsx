@@ -176,6 +176,15 @@ const AppointmentForm = () => {
         return;
       }
       
+      // Extract and set the default slot duration from calendar configuration
+      if (slotsData.slot_config?.slot_duration) {
+        const duration = slotsData.slot_config.slot_duration;
+        // Update form data duration if it's still at default or hasn't been explicitly set by user
+        if (formData.duration === 30 || !formData.duration) {
+          setFormData(prev => ({ ...prev, duration }));
+        }
+      }
+      
       // Transform backend slots to frontend format
       const slots: TimeSlot[] = [];
       
@@ -303,6 +312,30 @@ const AppointmentForm = () => {
       if (selectedSlot && selectedSlot.is_blocked) {
         toast.error(`Cannot schedule appointment: ${selectedSlot.block_reason || 'Time slot is blocked'}`);
         return;
+      }
+    }
+
+    // Check if patient already has an appointment on this date (only for create mode)
+    if (!isEditMode && formData.patient_id && formData.start_at) {
+      try {
+        const appointmentDate = formData.start_at.split('T')[0];
+        const existingAppointments: any = await appointmentService.getAll({
+          patient_id: formData.patient_id,
+          date_from: appointmentDate,
+          date_to: appointmentDate
+        });
+        
+        const activeAppointments = (existingAppointments || []).filter((apt: any) => 
+          apt.status !== 'cancelled' && apt.status !== 'no-show'
+        );
+        
+        if (activeAppointments.length > 0) {
+          toast.error('This patient already has an appointment on this date. Please choose a different date.');
+          return;
+        }
+      } catch (checkError) {
+        console.warn('Could not check for existing appointments:', checkError);
+        // Continue with appointment creation if check fails
       }
     }
 

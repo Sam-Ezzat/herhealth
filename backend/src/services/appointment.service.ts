@@ -26,6 +26,23 @@ export const createAppointment = async (
     throw new ApiError(400, 'Appointment start time cannot be in the past');
   }
 
+  // Check if patient already has an appointment on this date
+  const appointmentDate = new Date(appointmentData.start_at).toISOString().split('T')[0];
+  const existingAppointments = await appointmentModel.findAllAppointments({
+    patient_id: appointmentData.patient_id,
+    date_from: appointmentDate,
+    date_to: appointmentDate
+  });
+  
+  // Filter out cancelled and no-show appointments
+  const activeAppointments = existingAppointments.filter(apt => 
+    apt.status !== 'cancelled' && apt.status !== 'no-show'
+  );
+  
+  if (activeAppointments.length > 0) {
+    throw new ApiError(400, 'Patient already has an appointment on this date. Please choose a different date or cancel the existing appointment.');
+  }
+
   // Check if the time slot is blocked by a calendar exception
   if (appointmentData.calendar_id) {
     const { query } = await import('../config/database');

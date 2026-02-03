@@ -309,6 +309,35 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
         console.log('Created new patient:', patient.first_name, patient.last_name);
       }
       
+      // Check if patient already has an appointment on this date
+      try {
+        const existingAppointments: any = await api.get('/appointments', {
+          patient_id: patientId,
+          date_from: formData.appointment_date,
+          date_to: formData.appointment_date
+        });
+        
+        const appointmentsData = existingAppointments.data || existingAppointments;
+        const appointmentsList = Array.isArray(appointmentsData) ? appointmentsData : [];
+        
+        // Filter appointments for the selected date that are not cancelled or no-show
+        const sameDay = appointmentsList.filter((apt: any) => {
+          const aptDate = new Date(apt.start_at).toISOString().split('T')[0];
+          return aptDate === formData.appointment_date && 
+                 apt.status !== 'cancelled' && 
+                 apt.status !== 'no-show';
+        });
+        
+        if (sameDay.length > 0) {
+          toast.error('This patient already has an appointment on this date. Please choose a different date.');
+          setSubmitting(false);
+          return;
+        }
+      } catch (checkError) {
+        console.warn('Could not check for existing appointments:', checkError);
+        // Continue with appointment creation if check fails
+      }
+      
       // Create appointment
       const startAt = createAppointmentDateTime(formData.appointment_date, formData.appointment_time);
       const endAt = calculateEndTime(startAt, parseInt(formData.duration));
@@ -326,14 +355,12 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
       
       await api.post('/appointments', appointmentData);
       
-      toast.success('Quick appointment created successfully!');
+      toast.success('Appointment created successfully!');
       
-      // Reload time slots to reflect the newly booked appointment
-      if (formData.doctor_id && formData.appointment_date) {
-        await loadAvailableTimeSlots();
-      }
-      
+      // Call onSuccess to refresh dashboard
       onSuccess();
+      
+      // Close the modal
       handleClose();
     } catch (error: any) {
       console.error('Error creating appointment:', error);
