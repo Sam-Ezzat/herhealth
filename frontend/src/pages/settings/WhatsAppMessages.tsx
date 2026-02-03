@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import Select from 'react-select';
 import whatsappMessageService, { WhatsAppMessage, MessageStats } from '../../services/whatsapp-message.service';
 import patientService, { Patient } from '../../services/patient.service';
 import whatsappTemplateService, { WhatsAppTemplate } from '../../services/whatsapp-template.service';
@@ -43,7 +44,12 @@ const WhatsAppMessages: React.FC = () => {
 
   // Load messages with filters
   useEffect(() => {
-    loadMessages();
+    // Debounce search to avoid too many requests
+    const timeoutId = setTimeout(() => {
+      loadMessages();
+    }, filterSearch ? 500 : 0); // 500ms delay for search, immediate for others
+
+    return () => clearTimeout(timeoutId);
   }, [filterPatient, filterStatus, filterType, filterSearch, filterDateFrom, filterDateTo]);
 
   // Load appointments when patient is selected
@@ -63,7 +69,7 @@ const WhatsAppMessages: React.FC = () => {
         patient_id: filterPatient || undefined, // Keep as UUID string
         status: filterStatus || undefined,
         message_type: filterType || undefined,
-        search: filterSearch || undefined,
+        search: filterSearch.trim() || undefined, // Trim whitespace
         date_from: filterDateFrom || undefined,
         date_to: filterDateTo || undefined
       };
@@ -293,19 +299,29 @@ const WhatsAppMessages: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Patient *
                 </label>
-                <select
-                  value={selectedPatient}
-                  onChange={(e) => setSelectedPatient(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="">Select a patient</option>
-                  {patients.map((patient) => (
-                    <option key={patient.id} value={patient.id}>
-                      {patient.first_name} {patient.last_name} - {patient.phone}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  options={patients.map(patient => ({
+                    value: patient.id,
+                    label: `${patient.first_name} ${patient.last_name} - ${patient.phone}`
+                  }))}
+                  value={patients.find(p => p.id === selectedPatient) ? {
+                    value: selectedPatient,
+                    label: `${patients.find(p => p.id === selectedPatient)?.first_name} ${patients.find(p => p.id === selectedPatient)?.last_name} - ${patients.find(p => p.id === selectedPatient)?.phone}`
+                  } : null}
+                  onChange={(option) => setSelectedPatient(option?.value || '')}
+                  placeholder="Select a patient"
+                  isClearable
+                  isSearchable
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      minHeight: '38px',
+                      borderColor: '#d1d5db'
+                    })
+                  }}
+                />
               </div>
 
               {/* Appointment Selection (Optional) */}
@@ -412,20 +428,42 @@ const WhatsAppMessages: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Patient
+                    Filter by Patient
                   </label>
-                  <select
-                    value={filterPatient}
-                    onChange={(e) => setFilterPatient(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">All Patients</option>
-                    {patients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.first_name} {patient.last_name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    options={patients.map(patient => ({
+                      value: patient.id,
+                      label: `${patient.first_name} ${patient.last_name} - ${patient.phone}`
+                    }))}
+                    value={
+                      filterPatient 
+                        ? (() => {
+                            const patient = patients.find(p => p.id === filterPatient);
+                            return patient 
+                              ? { value: patient.id, label: `${patient.first_name} ${patient.last_name} - ${patient.phone}` }
+                              : null;
+                          })()
+                        : null
+                    }
+                    onChange={(option) => {
+                      console.log('Filter patient changed:', option);
+                      setFilterPatient(option?.value || '');
+                    }}
+                    isClearable
+                    isSearchable
+                    placeholder="All Patients"
+                    noOptionsMessage={() => "No patients found"}
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        minHeight: '38px',
+                        borderColor: '#d1d5db',
+                        fontSize: '0.875rem'
+                      })
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -448,13 +486,16 @@ const WhatsAppMessages: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Search
+                    Search Messages
                   </label>
                   <input
                     type="text"
                     value={filterSearch}
-                    onChange={(e) => setFilterSearch(e.target.value)}
-                    placeholder="Search messages..."
+                    onChange={(e) => {
+                      console.log('Search changed:', e.target.value);
+                      setFilterSearch(e.target.value);
+                    }}
+                    placeholder="Search by name, phone, or message..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

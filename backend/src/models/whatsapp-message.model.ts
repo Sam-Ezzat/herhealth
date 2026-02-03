@@ -150,7 +150,10 @@ class WhatsAppMessageModel {
 
     query += ' ORDER BY wm.created_at DESC';
 
+    console.log('findAll - SQL Query:', query);
+    console.log('findAll - Values:', values);
     const result = await pool.query(query, values);
+    console.log('findAll - Result count:', result.rows.length);
     return result.rows;
   }
 

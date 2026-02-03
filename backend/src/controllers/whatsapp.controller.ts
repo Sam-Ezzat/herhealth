@@ -203,14 +203,20 @@ export const saveConfig = async (req: Request, res: Response, next: NextFunction
 // Get all messages with filters
 export const getMessages = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Extract filters from either direct query params or nested params object
+    const queryParams = (req.query.params as any) || req.query;
+    
     const filters = {
-      patient_id: req.query.patient_id as string, // UUID string
-      status: req.query.status as string,
-      message_type: req.query.message_type as string,
-      date_from: req.query.date_from as string,
-      date_to: req.query.date_to as string,
-      search: req.query.search as string
+      patient_id: queryParams.patient_id as string, // UUID string
+      status: queryParams.status as string,
+      message_type: queryParams.message_type as string,
+      date_from: queryParams.date_from as string,
+      date_to: queryParams.date_to as string,
+      search: queryParams.search as string
     };
+
+    console.log('getMessages - Query params:', req.query);
+    console.log('getMessages - Extracted filters:', filters);
 
     const messages = await WhatsAppService.getAllMessages(filters);
     

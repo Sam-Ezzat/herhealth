@@ -70,6 +70,7 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
   const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
   const [doctorCalendars, setDoctorCalendars] = useState<any[]>([]);
   const [loadingCalendars, setLoadingCalendars] = useState(false);
+  const [defaultSlotDuration, setDefaultSlotDuration] = useState<number>(30);
 
   useEffect(() => {
     if (isOpen) {
@@ -225,6 +226,16 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
         return;
       }
       
+      // Extract and set the default slot duration from calendar configuration
+      if (slotsData.slot_config?.slot_duration) {
+        const duration = slotsData.slot_config.slot_duration;
+        setDefaultSlotDuration(duration);
+        // Update form data duration if it's still at default or hasn't been explicitly set by user
+        if (formData.duration === '30' || !formData.duration) {
+          setFormData(prev => ({ ...prev, duration: duration.toString() }));
+        }
+      }
+      
       // Map backend slots to frontend format
       const slots: TimeSlot[] = (slotsData.slots || []).map((slot: any) => {
         const time = parseTimeSlot(slot.start_time);
@@ -316,6 +327,12 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
       await api.post('/appointments', appointmentData);
       
       toast.success('Quick appointment created successfully!');
+      
+      // Reload time slots to reflect the newly booked appointment
+      if (formData.doctor_id && formData.appointment_date) {
+        await loadAvailableTimeSlots();
+      }
+      
       onSuccess();
       handleClose();
     } catch (error: any) {
