@@ -4,6 +4,23 @@ import * as WhatsAppService from './whatsapp.service';
 import * as AppointmentService from './appointment.service';
 import ApiError from '../utils/ApiError';
 
+const WINDOWS_TO_IANA_TIMEZONES: Record<string, string> = {
+  'Egypt Standard Time': 'Africa/Cairo'
+};
+
+const normalizeTimeZone = (timeZone?: string) => {
+  const mapped = timeZone && WINDOWS_TO_IANA_TIMEZONES[timeZone]
+    ? WINDOWS_TO_IANA_TIMEZONES[timeZone]
+    : timeZone || 'UTC';
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: mapped });
+    return mapped;
+  } catch {
+    return 'UTC';
+  }
+};
+
 // Get all calendars with working hours and time slots
 export const getAllCalendars = async () => {
   // Get all active calendars directly from the model
@@ -479,7 +496,7 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
     }
   }
 
-  const timeZone = calendar.timezone || 'UTC';
+  const timeZone = normalizeTimeZone(calendar.timezone || 'UTC');
   const dateFormatter = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
