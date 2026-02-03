@@ -365,6 +365,11 @@ const QuickAppointmentModal = ({ isOpen, onClose, onSuccess }: QuickAppointmentM
     } catch (error: any) {
       console.error('Error creating appointment:', error);
       toast.error(error.response?.data?.error || 'Failed to create appointment');
+      
+      // Reload time slots to reflect any changes (someone else might have booked while we were selecting)
+      if (formData.doctor_id && formData.appointment_date) {
+        await loadAvailableTimeSlots();
+      }
     } finally {
       setSubmitting(false);
     }

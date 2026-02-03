@@ -667,6 +667,12 @@ const AppointmentCalendar = () => {
       loadAppointments();
     } catch (error: any) {
       toast.error(error.response?.data?.error || `Failed to ${modalMode} appointment`);
+      
+      // Reload time slots to reflect any changes (someone else might have booked while we were selecting)
+      if (formData.doctor_id && formData.start_at) {
+        const appointmentDate = formData.start_at.split('T')[0];
+        await loadAvailableTimeSlots(appointmentDate);
+      }
     }
   };
 

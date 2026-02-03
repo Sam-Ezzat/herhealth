@@ -384,6 +384,12 @@ const AppointmentForm = () => {
       navigate('/appointments', { replace: true });
     } catch (error: any) {
       toast.error(error.response?.data?.error || `Failed to ${isEditMode ? 'update' : 'create'} appointment`);
+      
+      // Reload time slots to reflect any changes (someone else might have booked while we were filling the form)
+      if (formData.doctor_id && formData.start_at) {
+        const appointmentDate = formData.start_at.split('T')[0];
+        await loadAvailableTimeSlots(appointmentDate);
+      }
     } finally {
       setLoading(false);
     }
