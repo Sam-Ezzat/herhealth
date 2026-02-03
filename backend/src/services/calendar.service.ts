@@ -519,15 +519,17 @@ export const getAvailableTimeSlots = async (doctorId: string, date: string, cale
     max_appointments_per_slot: 1
   };
 
-  // Get existing appointments for this date
+  // Get existing appointments for this date and calendar
+  // Filter by calendar_id to ensure appointments from different calendars don't affect each other
   const appointmentsResult = await dbQuery(
     `SELECT start_at, end_at 
      FROM appointments 
      WHERE doctor_id = $1 
      AND DATE(start_at) = $2 
+     AND (calendar_id = $3 OR calendar_id IS NULL)
      AND status NOT IN ('cancelled', 'no-show')
      ORDER BY start_at`,
-    [doctorId, date]
+    [doctorId, date, calendar.id]
   );
 
   const existingAppointments = appointmentsResult.rows;
