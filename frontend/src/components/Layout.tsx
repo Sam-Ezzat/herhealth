@@ -72,7 +72,8 @@ const Layout = () => {
       label: 'Settings',
       submenu: [
         { path: '/settings/automations', label: 'Automations' },
-        { path: '/settings/color-codes', label: 'Color Codes' }
+        { path: '/settings/color-codes', label: 'Color Codes' },
+        { path: '/settings/import-patients', label: 'Import Patients' }
       ]
     },
   ];

@@ -98,3 +98,55 @@ export const getPatientStats = async (_req: Request, res: Response, next: NextFu
     next(error);
   }
 };
+
+export const bulkImportPatients = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw ApiError.unauthorized('User not authenticated');
+    }
+
+    const { patients } = req.body;
+
+    if (!Array.isArray(patients) || patients.length === 0) {
+      throw ApiError.badRequest('Invalid patients data. Expected an array of patient objects.');
+    }
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as Array<{ row: number; error: string; data?: any }>
+    };
+
+    // Process each patient
+    for (let i = 0; i < patients.length; i++) {
+      const patientData = patients[i];
+      
+      // Validate required fields
+      if (!patientData.first_name || !patientData.last_name || !patientData.phone) {
+        results.failed++;
+        results.errors.push({
+          row: i + 1,
+          error: 'Missing required fields (first_name, last_name, phone)',
+          data: patientData
+        });
+        continue;
+      }
+
+      try {
+        await patientService.createPatient(patientData, req.user.id);
+        results.success++;
+      } catch (error: any) {
+        results.failed++;
+        results.errors.push({
+          row: i + 1,
+          error: error.message || 'Failed to create patient',
+          data: patientData
+        });
+      }
+    }
+
+    res.json(ApiResponse.success(results, `Bulk import completed. ${results.success} succeeded, ${results.failed} failed.`));
+  } catch (error) {
+    next(error);
+  }
+};

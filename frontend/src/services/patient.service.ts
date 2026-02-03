@@ -97,6 +97,12 @@ const patientService = {
     const response = await api.get<{ success: boolean; data: PatientStats }>('/patients/stats') as any;
     return response.data || response;
   },
+
+  // Bulk import patients
+  bulkImport: async (patients: Array<Omit<Patient, 'id' | 'created_at' | 'updated_at' | 'color_code_name' | 'color_code_hex'>>): Promise<{ success: number; failed: number; errors: any[] }> => {
+    const response = await api.post<{ success: boolean; data: { success: number; failed: number; errors: any[] } }>('/patients/bulk-import', { patients }) as any;
+    return response.data || response;
+  },
 };
 
 export default patientService;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import Select from 'react-select';
 import visitService from '../../services/visit.service';
 import patientService, { Patient } from '../../services/patient.service';
 import doctorService, { Doctor } from '../../services/doctor.service';
@@ -250,20 +251,37 @@ const VisitForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Patient <span className="text-red-500">*</span>
               </label>
-              <select
-                name="patient_id"
-                value={formData.patient_id}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Patient</option>
-                {patients.map((patient) => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.first_name} {patient.last_name}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={patients.map(patient => ({
+                  value: patient.id,
+                  label: `${patient.first_name} ${patient.last_name}`
+                }))}
+                value={patients.find(p => p.id === formData.patient_id) ? {
+                  value: formData.patient_id,
+                  label: `${patients.find(p => p.id === formData.patient_id)?.first_name} ${patients.find(p => p.id === formData.patient_id)?.last_name}`
+                } : null}
+                onChange={(option) => {
+                  setFormData({
+                    ...formData,
+                    patient_id: option?.value || ''
+                  });
+                }}
+                placeholder="Select Patient"
+                isClearable
+                isSearchable
+                className="react-select-container"
+                classNamePrefix="react-select"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    minHeight: '42px',
+                    borderColor: '#d1d5db',
+                    '&:hover': {
+                      borderColor: '#d1d5db'
+                    }
+                  })
+                }}
+              />
             </div>
 
             <div>

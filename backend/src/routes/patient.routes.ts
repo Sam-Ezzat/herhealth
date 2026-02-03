@@ -48,6 +48,13 @@ router.post(
   patientController.createPatient
 );
 
+// Bulk import patients
+router.post(
+  '/bulk-import',
+  checkPermissions([Permissions.PATIENTS_CREATE]),
+  patientController.bulkImportPatients
+);
+
 // Update patient
 router.put(
   '/:id',
